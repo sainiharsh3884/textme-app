@@ -19,7 +19,12 @@
     }
     #app {
       position: relative;
+      /* --app-vh is set from JS (window.innerHeight) so the composer never
+         hides behind a mobile browser's address bar / nav bar. Falls back
+         to dvh, then plain vh, for browsers where JS hasn't run yet. */
       height: 100vh;
+      height: calc(var(--app-vh, 1vh) * 100);
+      height: 100dvh;
       width: 100%;
       display: flex;
       flex-direction: column;
@@ -121,6 +126,31 @@
     }
     .logged-in-bar b { color: var(--text); }
     .link-btn { background: none; color: var(--text-dim); text-decoration: underline; font-size: 12.5px; }
+
+    /* recent rooms quick-entry */
+    #recent-rooms-block { margin-top: 22px; }
+    .recent-rooms-label {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-faint); margin-bottom: 9px;
+    }
+    .recent-rooms-list { display: flex; flex-direction: column; gap: 7px; }
+    .recent-room-item {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+      text-align: left; transition: border-color .15s, background .15s;
+    }
+    .recent-room-item:hover { border-color: var(--accent-dim); background: var(--bg-input); }
+    .recent-room-name { font-size: 13.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .recent-room-time { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
+    .recent-room-remove {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-faint);
+    }
+    .recent-room-remove:hover { color: var(--accent); background: var(--accent-soft); }
+    .recent-room-remove svg { width: 12px; height: 12px; }
 
     /* CHAT LAYOUT — fully responsive */
     #chat {
@@ -251,7 +281,35 @@
       border: 1px solid var(--border);
       border-bottom-left-radius: 4px;
     }
-    .bubble img { max-width: 100%; border-radius: 8px; display: block; margin-top: 2px; }
+    .bubble img {
+      max-width: 100%;
+      max-height: 260px;
+      width: auto;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+      margin-top: 2px;
+      object-fit: cover;
+      cursor: zoom-in;
+    }
+    /* fullscreen tap-to-view lightbox for images */
+    #img-lightbox {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(6,4,3,0.94);
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(4px);
+    }
+    #img-lightbox.show { display: flex; }
+    #img-lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; object-fit: contain; }
+    #img-lightbox-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 38px; height: 38px; border-radius: 50%;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      color: var(--text); display: flex; align-items: center; justify-content: center;
+    }
+    #img-lightbox-close svg { width: 18px; height: 18px; }
     .bubble a { color: var(--accent); text-decoration: underline; }
     .file-chip {
       display: flex; align-items: center; gap: 8px;
@@ -408,6 +466,7 @@
       .composer-btn { width: 36px; height: 36px; min-width: 36px; }
       .composer-btn svg { width: 16px; height: 16px; }
       .bubble { font-size: 13px; padding: 8px 10px; }
+      .bubble img { max-height: 200px; }
       .msg-row { max-width: 88%; }
       .landing-title { font-size: 28px; }
       .landing-card { padding: 0; }
@@ -474,6 +533,11 @@
         <div class="field"><label>Room code</label><input id="room-input" type="text" maxlength="24" placeholder="e.g. blue-lagoon-9" autocomplete="off"></div>
         <button class="btn-primary" id="enter-btn">Enter room</button>
         <div style="display:flex;justify-content:center;margin-top:12px;"><button class="btn-ghost" id="random-room-btn">Generate a new room code</button></div>
+
+        <div id="recent-rooms-block" style="display:none;">
+          <div class="recent-rooms-label">Recently entered</div>
+          <div class="recent-rooms-list" id="recent-rooms-list"></div>
+        </div>
       </div>
 
       <div class="landing-note"><b>Before you go in:</b> anyone with this room code who's signed in can join. Messages disappear after being read. Screenshots can't be technically blocked — we detect and warn.</div>
@@ -554,11 +618,35 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- fullscreen image viewer -->
+  <div id="img-lightbox">
+    <button id="img-lightbox-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+    <img id="img-lightbox-img" src="" alt="full size image">
+  </div>
 </div>
 
 <script>
 (function(){
   'use strict';
+
+  // Keep a real, up-to-date viewport height in a CSS var. Mobile browsers
+  // (especially iOS Safari / Android Chrome) resize their address bar and
+  // keyboard without firing a clean 100vh update, which is what was hiding
+  // the composer ("text sending tab") on phones/tablets. We recompute on
+  // load, resize, orientation change, and visualViewport changes (keyboard).
+  function setAppVh(){
+    const vv = window.visualViewport;
+    const h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-vh', (h * 0.01) + 'px');
+  }
+  setAppVh();
+  window.addEventListener('resize', setAppVh);
+  window.addEventListener('orientationchange', setAppVh);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', setAppVh);
+    window.visualViewport.addEventListener('scroll', setAppVh);
+  }
 
   const STUN = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
@@ -588,6 +676,60 @@
   function fmtCountdown(ms){ if(ms<=0) return '0:00'; const s=Math.ceil(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
   function showToast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3200); }
   function slugRoom(s){ return s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60); }
+
+  // RECENT ROOMS — remembers the rooms this account has entered, so they
+  // can be re-joined with one tap instead of retyping the room code.
+  const RECENT_ROOMS_MAX = 6;
+  function recentRoomsKey(){ return `textme_recent_rooms_${me}`; }
+  function loadRecentRooms(){
+    if(!me) return [];
+    try{ return JSON.parse(localStorage.getItem(recentRoomsKey())) || []; }
+    catch(e){ return []; }
+  }
+  function saveRecentRoom(roomName){
+    if(!me) return;
+    let list = loadRecentRooms().filter(r => r.room !== roomName);
+    list.unshift({ room: roomName, lastEntered: Date.now() });
+    list = list.slice(0, RECENT_ROOMS_MAX);
+    localStorage.setItem(recentRoomsKey(), JSON.stringify(list));
+    renderRecentRooms();
+  }
+  function removeRecentRoom(roomName){
+    const list = loadRecentRooms().filter(r => r.room !== roomName);
+    localStorage.setItem(recentRoomsKey(), JSON.stringify(list));
+    renderRecentRooms();
+  }
+  function fmtRelativeTime(ts){
+    const diff = Date.now() - ts;
+    const min = Math.floor(diff/60000);
+    if(min < 1) return 'just now';
+    if(min < 60) return `${min}m ago`;
+    const hr = Math.floor(min/60);
+    if(hr < 24) return `${hr}h ago`;
+    const day = Math.floor(hr/24);
+    if(day < 7) return `${day}d ago`;
+    return new Date(ts).toLocaleDateString();
+  }
+  function renderRecentRooms(){
+    const list = loadRecentRooms();
+    const block = $('recent-rooms-block');
+    const listEl = $('recent-rooms-list');
+    if(!list.length){ block.style.display = 'none'; listEl.innerHTML = ''; return; }
+    block.style.display = 'block';
+    listEl.innerHTML = list.map(r => `
+      <div class="recent-room-item">
+        <button class="recent-room-name mono" style="flex:1;min-width:0;background:none;text-align:left;color:inherit;" data-room="${esc(r.room)}">${esc(r.room)}</button>
+        <span class="recent-room-time">${fmtRelativeTime(r.lastEntered)}</span>
+        <button class="recent-room-remove" data-remove="${esc(r.room)}" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+      </div>
+    `).join('');
+    listEl.querySelectorAll('[data-room]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ $('room-input').value = btn.dataset.room; enterRoom(); });
+    });
+    listEl.querySelectorAll('[data-remove]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{ e.stopPropagation(); removeRecentRoom(btn.dataset.remove); });
+    });
+  }
 
   // AUTH
   let authMode = 'login';
@@ -630,6 +772,7 @@
     $('me-label').textContent = me;
     $('auth-block').style.display = 'none';
     $('room-block').style.display = 'block';
+    renderRecentRooms();
   }
 
   $('logout-btn').addEventListener('click', ()=>{
@@ -663,6 +806,7 @@
     $('hdr-room-name').textContent = room;
     connectWS();
     initScreenshotDeterrence();
+    saveRecentRoom(room);
   }
 
   // WEBSOCKET
@@ -854,6 +998,17 @@
   let lastNotify = 0;
   function notifyPossibleScreenshot(){ const now=Date.now(); if(now-lastNotify<4000) return; lastNotify=now; wsSend({type:'screenshot-alert'}); }
   $('ss-dismiss').addEventListener('click', ()=> $('ss-banner').style.display='none');
+
+  // IMAGE LIGHTBOX — bubbles keep images small; tap one to view full size
+  $('msg-scroll').addEventListener('click', (e)=>{
+    const img = e.target.closest('.bubble img');
+    if(!img) return;
+    $('img-lightbox-img').src = img.src;
+    $('img-lightbox').classList.add('show');
+  });
+  function closeLightbox(){ $('img-lightbox').classList.remove('show'); $('img-lightbox-img').src=''; }
+  $('img-lightbox-close').addEventListener('click', closeLightbox);
+  $('img-lightbox').addEventListener('click', (e)=>{ if(e.target.id==='img-lightbox') closeLightbox(); });
 
   // LEAVE
   $('leave-btn').addEventListener('click', ()=>{
