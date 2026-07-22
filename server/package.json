@@ -1,0 +1,16 @@
+{
+  "name": "textme-chat-server",
+  "version": "1.0.0",
+  "description": "Real-time chat + calling signaling server for Textme — disappearing messages, JWT auth, WebRTC signaling.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
