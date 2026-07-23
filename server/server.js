@@ -76,17 +76,95 @@ function verifyToken(token) {
 
 // ---------------------------------------------------------------------------
 // User store (account metadata only — never message content)
+//
+// On Render, the local filesystem is wiped on every deploy/restart, so a
+// plain users.json file loses every signed-up account each time you push.
+// If a DATABASE_URL env var is present (attach a free Render Postgres to
+// this service and it sets this automatically), accounts are stored there
+// instead and survive deploys/restarts. Without DATABASE_URL, it falls
+// back to the local users.json file, which is fine for local development.
 // ---------------------------------------------------------------------------
-let users = {};
-function loadUsers() {
+const USE_DB = !!process.env.DATABASE_URL;
+let pool = null;
+let users = {}; // only used in file-mode: key(lowercase username) -> { username, passwordHash, createdAt }
+
+if (USE_DB) {
+  const { Pool } = require('pg');
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL) ? false : { rejectUnauthorized: false },
+  });
+} else {
+  console.warn('[WARN] DATABASE_URL is not set — using local users.json file. On Render this will NOT persist across deploys/restarts. Attach a Render Postgres database to this service to fix that permanently.');
+}
+
+async function initUserStore() {
+  if (USE_DB) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        username_key TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at BIGINT NOT NULL
+      )
+    `);
+    console.log('[DB] Connected to Postgres — accounts will persist across deploys.');
+  } else {
+    loadUsersFromFile();
+  }
+}
+
+function loadUsersFromFile() {
   try { users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); }
   catch (e) { users = {}; }
 }
-function saveUsers() {
+function saveUsersToFile() {
   try { fs.writeFileSync(USERS_FILE, JSON.stringify(users)); }
   catch (e) { console.error('Failed to persist users.json:', e.message); }
 }
-loadUsers();
+
+// getUserByKey(usernameLowercase) -> { username, passwordHash, createdAt } | null
+async function getUserByKey(key) {
+  if (USE_DB) {
+    const { rows } = await pool.query(
+      'SELECT username, password_hash AS "passwordHash", created_at AS "createdAt" FROM users WHERE username_key = $1',
+      [key]
+    );
+    return rows[0] || null;
+  }
+  return users[key] || null;
+}
+
+async function createUser(username, passwordHash) {
+  const key = username.toLowerCase();
+  if (USE_DB) {
+    await pool.query(
+      'INSERT INTO users (username_key, username, password_hash, created_at) VALUES ($1,$2,$3,$4)',
+      [key, username, passwordHash, Date.now()]
+    );
+  } else {
+    users[key] = { username, passwordHash, createdAt: Date.now() };
+    saveUsersToFile();
+  }
+}
+
+// searchUsernames(query, excludeKey, limit) -> string[] of matching usernames
+async function searchUsernames(query, excludeKey, limit) {
+  if (USE_DB) {
+    const { rows } = await pool.query(
+      'SELECT username FROM users WHERE username_key LIKE $1 AND username_key != $2 ORDER BY username_key LIMIT $3',
+      [`%${query}%`, excludeKey, limit]
+    );
+    return rows.map(r => r.username);
+  }
+  const matches = [];
+  for (const key of Object.keys(users)) {
+    if (key === excludeKey) continue;
+    if (key.includes(query)) matches.push(users[key].username);
+    if (matches.length >= limit) break;
+  }
+  return matches;
+}
 
 function validUsername(u) { return typeof u === 'string' && /^[a-zA-Z0-9_-]{3,20}$/.test(u); }
 
@@ -167,9 +245,8 @@ const server = http.createServer(async (req, res) => {
       if (!validUsername(username)) return sendJson(res, 400, { error: 'Username must be 3-20 chars: letters, numbers, _ or -' });
       if (typeof password !== 'string' || password.length < 6) return sendJson(res, 400, { error: 'Password must be at least 6 characters' });
       const key = username.toLowerCase();
-      if (users[key]) return sendJson(res, 409, { error: 'That username is taken' });
-      users[key] = { username, passwordHash: hashPassword(password), createdAt: Date.now() };
-      saveUsers();
+      if (await getUserByKey(key)) return sendJson(res, 409, { error: 'That username is taken' });
+      await createUser(username, hashPassword(password));
       return sendJson(res, 200, { token: signToken({ sub: username }) });
     }
 
@@ -178,7 +255,7 @@ const server = http.createServer(async (req, res) => {
       const raw = await readBody(req);
       const { username, password } = JSON.parse(raw || '{}');
       const key = String(username || '').toLowerCase();
-      const record = users[key];
+      const record = await getUserByKey(key);
       if (!record || !verifyPassword(password || '', record.passwordHash)) {
         return sendJson(res, 401, { error: 'Invalid username or password' });
       }
@@ -203,12 +280,7 @@ const server = http.createServer(async (req, res) => {
       if (q.length > 20) return sendJson(res, 200, { users: [] });
       const requester = payload.sub.toLowerCase();
       const USER_SEARCH_LIMIT = 10;
-      const matches = [];
-      for (const key of Object.keys(users)) {
-        if (key === requester) continue;
-        if (key.includes(q)) matches.push(users[key].username);
-        if (matches.length >= USER_SEARCH_LIMIT) break;
-      }
+      const matches = await searchUsernames(q, requester, USER_SEARCH_LIMIT);
       return sendJson(res, 200, { users: matches });
     }
 
@@ -398,7 +470,14 @@ const heartbeat = setInterval(() => {
 
 server.on('close', () => clearInterval(heartbeat));
 
-server.listen(PORT, () => {
-  console.log(`Textme server listening on port ${PORT}`);
-  if (!JWT_SECRET) console.warn('Reminder: set a real JWT_SECRET env var in production.');
-});
+initUserStore()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Textme server listening on port ${PORT}`);
+      if (!JWT_SECRET) console.warn('Reminder: set a real JWT_SECRET env var in production.');
+    });
+  })
+  .catch((e) => {
+    console.error('Failed to initialize user store:', e);
+    process.exit(1);
+  });

@@ -106,11 +106,30 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: radial-gradient(ellipse 800px 500px at 50% -10%, rgba(232,86,42,0.10), transparent 60%), var(--bg);
+      background: var(--bg);
       padding: 16px;
       overflow-y: auto;
+      position: relative;
+    }
+    /* fixed to the viewport (not the scrolling card) so it always covers
+       the whole screen edge-to-edge on phones, tablets, and desktops,
+       regardless of how tall the login/room card content gets */
+    .landing-bg {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.4;
+      z-index: 0;
+    }
+    .landing-bg-overlay {
+      position: fixed; inset: 0;
+      z-index: 0;
+      background: radial-gradient(ellipse 800px 500px at 50% -10%, rgba(232,86,42,0.14), transparent 60%),
+                  linear-gradient(180deg, rgba(6,5,4,0.55) 0%, rgba(6,5,4,0.88) 55%, rgba(6,5,4,0.97) 100%);
     }
     .landing-card {
+      position: relative;
+      z-index: 1;
       width: 100%;
       max-width: 400px;
       padding: 0 4px;
@@ -605,6 +624,8 @@
 
   <!-- LANDING -->
   <div id="landing" style="display:none;">
+    <img class="landing-bg" src="welcome-bg.jpg" alt="">
+    <div class="landing-bg-overlay"></div>
     <div class="landing-card">
       <div class="flame-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#e8562a" stroke-width="1.8"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg></div>
       <h1 class="landing-title wordmark">TEXTME</h1>
