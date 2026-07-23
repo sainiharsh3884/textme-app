@@ -55,6 +55,51 @@
     button { font-family: 'Inter', sans-serif; cursor: pointer; border: none; background: none; }
     input, select, textarea { font-family: 'Inter', sans-serif; }
 
+    /* WELCOME / SPLASH */
+    #welcome {
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #060504;
+    }
+    #welcome .welcome-bg {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.55;
+    }
+    #welcome .welcome-overlay {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 900px 600px at 50% 20%, rgba(232,86,42,0.14), transparent 65%),
+                  linear-gradient(180deg, rgba(6,5,4,0.35) 0%, rgba(6,5,4,0.75) 55%, rgba(6,5,4,0.96) 100%);
+    }
+    .welcome-content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 24px;
+      max-width: 420px;
+    }
+    .welcome-content .flame-mark { margin: 0 auto 22px; }
+    .welcome-title {
+      font-size: 42px;
+      line-height: 1.05;
+      margin: 0 0 10px;
+      text-shadow: 0 4px 30px rgba(0,0,0,0.6);
+    }
+    .welcome-title .accent-word { color: var(--accent); }
+    .welcome-sub {
+      color: var(--text-dim);
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 0 0 30px;
+    }
+    .btn-primary.welcome-cta { max-width: 280px; margin: 0 auto; display: block; }
+    .welcome-footnote { margin-top: 16px; font-size: 12px; color: var(--text-faint); }
+
     /* LANDING */
     #landing {
       height: 100%;
@@ -151,6 +196,43 @@
     }
     .recent-room-remove:hover { color: var(--accent); background: var(--accent-soft); }
     .recent-room-remove svg { width: 12px; height: 12px; }
+
+    /* FIND A USER / SEARCH */
+    #search-users-block { margin-top: 22px; }
+    .search-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 22px 0 16px; color: var(--text-faint); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .search-divider::before, .search-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .search-row { display: flex; gap: 8px; }
+    .search-row input { flex: 1; }
+    .search-row .btn-ghost { flex-shrink: 0; padding: 0 16px; }
+    .search-results { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; }
+    .search-result-item {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 10px;
+    }
+    .search-result-avatar {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      background: var(--accent-soft); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+    }
+    .search-result-name {
+      flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .search-result-msg-btn {
+      flex-shrink: 0; background: var(--accent-soft); color: var(--accent);
+      border: 1px solid var(--accent-dim); padding: 7px 12px;
+      border-radius: 8px; font-size: 12px; font-weight: 600;
+    }
+    .search-result-msg-btn:hover { background: var(--accent); color: #181310; }
+    .search-status { font-size: 12.5px; color: var(--text-faint); margin-top: 10px; text-align: center; }
 
     /* CHAT LAYOUT — fully responsive */
     #chat {
@@ -508,8 +590,21 @@
 <body>
 <div id="app">
 
+  <!-- WELCOME / SPLASH -->
+  <div id="welcome">
+    <img class="welcome-bg" src="welcome-bg.jpg" alt="">
+    <div class="welcome-overlay"></div>
+    <div class="welcome-content">
+      <div class="flame-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#e8562a" stroke-width="1.8"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg></div>
+      <h1 class="welcome-title wordmark">Welcome, <span class="accent-word">TextME</span></h1>
+      <p class="welcome-sub">Messages that read once, then burn. Sign up or log in, then jump into a room — or search for a friend by username and start chatting instantly.</p>
+      <button class="btn-primary welcome-cta" id="welcome-cta">Get started</button>
+      <div class="welcome-footnote">No account yet? You can sign up on the next screen.</div>
+    </div>
+  </div>
+
   <!-- LANDING -->
-  <div id="landing">
+  <div id="landing" style="display:none;">
     <div class="landing-card">
       <div class="flame-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#e8562a" stroke-width="1.8"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg></div>
       <h1 class="landing-title wordmark">TEXTME</h1>
@@ -537,6 +632,17 @@
         <div id="recent-rooms-block" style="display:none;">
           <div class="recent-rooms-label">Recently entered</div>
           <div class="recent-rooms-list" id="recent-rooms-list"></div>
+        </div>
+
+        <div class="search-divider">or find someone</div>
+        <div id="search-users-block">
+          <div class="field"><label>Search by username</label></div>
+          <div class="search-row">
+            <input id="user-search-input" type="text" maxlength="20" placeholder="e.g. ram" autocomplete="off">
+            <button class="btn-ghost" id="user-search-btn">Search</button>
+          </div>
+          <div class="search-results" id="search-results-list"></div>
+          <div class="search-status" id="search-status" style="display:none;"></div>
         </div>
       </div>
 
@@ -731,6 +837,12 @@
     });
   }
 
+  // WELCOME
+  $('welcome-cta').addEventListener('click', ()=>{
+    $('welcome').style.display = 'none';
+    $('landing').style.display = 'flex';
+  });
+
   // AUTH
   let authMode = 'login';
   $('tab-login').addEventListener('click', ()=> setAuthMode('login'));
@@ -807,6 +919,68 @@
     connectWS();
     initScreenshotDeterrence();
     saveRecentRoom(room);
+  }
+
+  // FIND A USER — search registered usernames and jump straight into a
+  // 1:1 room with them (no need to share a room code by hand).
+  let searchDebounceHandle = null;
+  $('user-search-btn').addEventListener('click', doUserSearch);
+  $('user-search-input').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doUserSearch(); } });
+  $('user-search-input').addEventListener('input', ()=>{
+    clearTimeout(searchDebounceHandle);
+    const q = $('user-search-input').value.trim();
+    if(!q){ $('search-results-list').innerHTML=''; setSearchStatus(''); return; }
+    searchDebounceHandle = setTimeout(doUserSearch, 350);
+  });
+
+  function setSearchStatus(msg){
+    const el = $('search-status');
+    if(!msg){ el.style.display='none'; el.textContent=''; return; }
+    el.style.display='block'; el.textContent = msg;
+  }
+
+  async function doUserSearch(){
+    const q = $('user-search-input').value.trim();
+    if(!q){ setSearchStatus('Type a username to search'); return; }
+    if(q.toLowerCase() === (me||'').toLowerCase()){ setSearchStatus("That's you!"); $('search-results-list').innerHTML=''; return; }
+    setSearchStatus('Searching…');
+    $('search-results-list').innerHTML = '';
+    try{
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if(!res.ok){ setSearchStatus('Search is unavailable right now'); return; }
+      const data = await res.json();
+      const users = (data.users || []).filter(u => u.toLowerCase() !== (me||'').toLowerCase());
+      if(!users.length){ setSearchStatus(`No users found matching "${q}"`); return; }
+      setSearchStatus('');
+      renderSearchResults(users);
+    }catch(e){ setSearchStatus('Could not reach the server'); }
+  }
+
+  function renderSearchResults(users){
+    $('search-results-list').innerHTML = users.map(u => `
+      <div class="search-result-item">
+        <div class="search-result-avatar">${esc(u[0]||'?').toUpperCase()}</div>
+        <div class="search-result-name">${esc(u)}</div>
+        <button class="search-result-msg-btn" data-user="${esc(u)}">Message</button>
+      </div>
+    `).join('');
+    $('search-results-list').querySelectorAll('[data-user]').forEach(btn=>{
+      btn.addEventListener('click', ()=> startDirectMessage(btn.dataset.user));
+    });
+  }
+
+  // Builds a stable, unique room code for a pair of users (same code
+  // regardless of who initiates), so both people land in the same room.
+  function dmRoomCode(userA, userB){
+    const pair = [userA.toLowerCase(), userB.toLowerCase()].sort();
+    return slugRoom(`dm-${pair[0]}-${pair[1]}`);
+  }
+
+  function startDirectMessage(username){
+    $('room-input').value = dmRoomCode(me, username);
+    enterRoom();
   }
 
   // WEBSOCKET

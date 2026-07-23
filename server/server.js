@@ -193,6 +193,25 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { username: payload.sub });
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/users/search') {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      const payload = token && verifyToken(token);
+      if (!payload) return sendJson(res, 401, { error: 'Invalid or expired token' });
+      const q = String(url.searchParams.get('q') || '').trim().toLowerCase();
+      if (!q) return sendJson(res, 200, { users: [] });
+      if (q.length > 20) return sendJson(res, 200, { users: [] });
+      const requester = payload.sub.toLowerCase();
+      const USER_SEARCH_LIMIT = 10;
+      const matches = [];
+      for (const key of Object.keys(users)) {
+        if (key === requester) continue;
+        if (key.includes(q)) matches.push(users[key].username);
+        if (matches.length >= USER_SEARCH_LIMIT) break;
+      }
+      return sendJson(res, 200, { users: matches });
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/health') {
       return sendJson(res, 200, { ok: true, rooms: rooms.size });
     }
