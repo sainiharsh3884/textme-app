@@ -305,66 +305,6 @@
     #channels-block { margin-top: 22px; }
     .channel-avatar { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 
-    /* JOIN REQUESTS — people waiting for owner approval to enter a room */
-    #join-requests-block { margin-bottom: 22px; }
-    .join-requests-label {
-      font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
-      color: var(--accent); margin-bottom: 9px; display: flex; align-items: center; gap: 6px;
-    }
-    .join-req-group {
-      background: var(--bg-elevated); border: 1px solid var(--accent-dim);
-      border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
-    }
-    .join-req-room { font-size: 11.5px; color: var(--text-faint); margin-bottom: 7px; }
-    .join-req-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
-    .join-req-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .join-req-approve, .join-req-deny {
-      flex-shrink: 0; border-radius: 7px; font-size: 12px; font-weight: 600; padding: 6px 11px;
-    }
-    .join-req-approve { background: var(--accent); color: #181310; }
-    .join-req-approve:hover { filter: brightness(1.08); }
-    .join-req-deny { background: transparent; color: var(--text-faint); border: 1px solid var(--border); }
-    .join-req-deny:hover { color: var(--text); border-color: var(--text-dim); }
-
-    /* WAITING ROOM — shown to someone who has entered but not yet been approved */
-    #waiting-room {
-      display: none; position: fixed; inset: 0; z-index: 40;
-      align-items: center; justify-content: center; padding: 24px;
-      background: var(--bg);
-    }
-    .waiting-card {
-      max-width: 360px; width: 100%; text-align: center;
-      background: var(--bg-elevated); border: 1px solid var(--border);
-      border-radius: 16px; padding: 34px 26px;
-    }
-    .waiting-spinner {
-      width: 40px; height: 40px; margin: 0 auto 18px;
-      border-radius: 50%; border: 3px solid var(--accent-dim); border-top-color: var(--accent);
-      animation: waiting-spin 0.9s linear infinite;
-    }
-    @keyframes waiting-spin { to { transform: rotate(360deg); } }
-    .waiting-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
-    .waiting-sub { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
-    .waiting-sub b { color: var(--text); }
-    #waiting-leave-btn { margin-top: 22px; }
-
-    /* Header pending-requests bell (owner, inside a room) */
-    #room-pending-btn { position: relative; display: none; }
-    .pending-count {
-      position: absolute; top: -4px; right: -4px;
-      background: var(--accent); color: #181310;
-      border-radius: 999px; font-size: 10px; font-weight: 700;
-      min-width: 15px; height: 15px; line-height: 15px; text-align: center;
-      padding: 0 3px;
-    }
-    #room-pending-panel {
-      display: none; position: absolute; top: 56px; right: 14px; z-index: 30;
-      width: 260px; max-height: 320px; overflow-y: auto;
-      background: var(--bg-elevated); border: 1px solid var(--accent-dim);
-      border-radius: 12px; padding: 12px; box-shadow: 0 12px 28px rgba(0,0,0,.35);
-    }
-    #room-pending-panel .join-requests-label { margin-bottom: 8px; }
-
     /* CHAT LAYOUT — fully responsive */
     #chat {
       display: none;
@@ -747,7 +687,7 @@
         <p class="landing-brand-sub">Messages that read once, then burn. Create an account, jump into a room, or search for a friend by username and start chatting instantly.</p>
         <div class="landing-brand-list">
           <div class="landing-brand-item"><span class="dot-mark"></span>Messages disappear after they're read</div>
-          <div class="landing-brand-item"><span class="dot-mark"></span>Anyone can enter a room, but the owner must approve you before you can see or send anything</div>
+          <div class="landing-brand-item"><span class="dot-mark"></span>Rooms are locked behind a 6-digit code set by the owner</div>
           <div class="landing-brand-item"><span class="dot-mark"></span>Screenshot attempts are detected and flagged</div>
         </div>
       </div>
@@ -775,15 +715,14 @@
       <div id="room-block" style="display:none;">
         <div class="logged-in-bar">Signed in as <b id="me-label"></b><button class="link-btn" id="logout-btn">log out</button></div>
         <div class="field"><label>Room code</label><input id="room-input" type="text" maxlength="24" placeholder="e.g. blue-lagoon-9" autocomplete="off"></div>
+        <div class="field" id="room-pin-field" style="display:none;">
+          <label>6-digit code from the room owner</label>
+          <input id="room-pin-input" type="text" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" class="mono">
+        </div>
         <button class="btn-primary" id="enter-btn">Enter room</button>
         <div class="error-text" id="room-error"></div>
-        <div class="landing-note" id="room-owner-note" style="display:none;"></div>
+        <div class="landing-note" id="room-pin-note" style="display:none;"></div>
         <div style="display:flex;justify-content:center;margin-top:12px;"><button class="btn-ghost" id="random-room-btn">Generate a new room code</button></div>
-
-        <div id="join-requests-block" style="display:none;">
-          <div class="join-requests-label">Waiting for your approval</div>
-          <div id="join-requests-list"></div>
-        </div>
 
         <div id="recent-rooms-block" style="display:none;">
           <div class="recent-rooms-label">Recently entered</div>
@@ -821,18 +760,8 @@
         </div>
       </div>
 
-      <div class="landing-note"><b>Before you go in:</b> the first person to enter a room code becomes its owner. Anyone else can enter too, even while the owner's offline, but they'll wait in a view-only state until the owner comes online and approves them. Messages disappear after being read. Screenshots can't be technically blocked — we detect and warn.</div>
+      <div class="landing-note"><b>Before you go in:</b> the first person to enter a room code becomes its owner and gets a 6-digit code — everyone else needs that code to get in. Messages disappear after being read. Screenshots can't be technically blocked — we detect and warn.</div>
     </div>
-    </div>
-  </div>
-
-  <!-- WAITING ROOM — shown after entering a room whose owner hasn't approved you yet -->
-  <div id="waiting-room">
-    <div class="waiting-card">
-      <div class="waiting-spinner"></div>
-      <div class="waiting-title">Waiting for approval</div>
-      <div class="waiting-sub">You're in the room, but <b id="waiting-owner-name">the owner</b> needs to let you in before you can see or send anything. This updates automatically once they approve you.</div>
-      <button class="btn-ghost" id="waiting-leave-btn">Leave</button>
     </div>
   </div>
 
@@ -847,14 +776,6 @@
         </div>
       </div>
       <div class="hdr-right">
-        <button class="icon-btn" id="room-pending-btn" title="Join requests">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span class="pending-count" id="room-pending-count" style="display:none;">0</span>
-        </button>
-        <div id="room-pending-panel">
-          <div class="join-requests-label">Waiting to join</div>
-          <div id="room-pending-list"></div>
-        </div>
         <select id="timer-select">
           <option value="30">Burn in 30s</option>
           <option value="300" selected>Burn in 5 min</option>
@@ -967,16 +888,6 @@
   let timerSeconds = 300;
   let messages = {};
   let burnCheckHandle = null;
-
-  // JOIN APPROVAL — status of the room the person is currently trying to
-  // enter/sit in ('owner' | 'member' | 'pending'), who owns it, join
-  // requests waiting on rooms this account owns (shown on the landing
-  // page), and the pending list for whichever room is currently open (shown
-  // in the room header, owner-only).
-  let roomStatus = null;
-  let roomOwner = null;
-  let joinRequests = []; // [{ room, pending: [{username}] }] — for rooms I own
-  let roomPendingList = []; // [{username}] — for the room I'm currently in, if I own it
 
   let pc = null;
   let localStream = null;
@@ -1138,29 +1049,37 @@
     if(!r){ showToast('Enter a room code'); return; }
     setRoomError('');
 
-    // Group rooms (not DMs, not channels) are gated by owner approval: the
-    // first person in becomes the owner; anyone else can walk straight in
-    // too (no code needed) but sits view-only until the owner approves
-    // them. DMs/channels sail through this check unaffected.
+    // Group rooms (not DMs, not channels) are gated: the first person in
+    // becomes the owner and gets a 6-digit code; everyone else must supply
+    // it. DMs/channels sail through this check unaffected.
+    const pin = $('room-pin-input').value.trim();
     let access;
     try{
       const res = await fetch('/api/rooms/enter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ code: r })
+        body: JSON.stringify({ code: r, pin })
       });
       access = await res.json();
-      if(!res.ok){ setRoomError(access.error || 'Could not enter that room'); return; }
+      if(!res.ok){
+        if(access.needsPin){
+          $('room-pin-field').style.display = 'block';
+          setRoomError(access.error || 'This room needs a 6-digit code from its owner');
+          $('room-pin-input').focus();
+        } else {
+          setRoomError(access.error || 'Could not enter that room');
+        }
+        return;
+      }
     }catch(e){ setRoomError('Could not reach the server'); return; }
 
-    roomStatus = access.status || 'member';
-    roomOwner = access.owner || null;
-
-    if(roomStatus === 'owner'){
-      $('room-owner-note').style.display = 'block';
-      $('room-owner-note').innerHTML = `<b>You own this room.</b> Anyone can enter this room code, but they'll wait for your approval before they can see or send anything.`;
+    $('room-pin-field').style.display = 'none';
+    $('room-pin-input').value = '';
+    if(access.isOwner && access.pin){
+      $('room-pin-note').style.display = 'block';
+      $('room-pin-note').innerHTML = `<b>You own this room.</b> Share this 6-digit code with anyone you want to let in — no one else can enter without it: <span class="mono" style="font-size:18px;letter-spacing:3px;">${esc(access.pin)}</span>`;
     } else {
-      $('room-owner-note').style.display = 'none';
+      $('room-pin-note').style.display = 'none';
     }
 
     room = r;
@@ -1170,35 +1089,12 @@
       if(c){ c.unread = 0; renderConversations(); }
     }
     $('landing').style.display='none';
+    $('chat').style.display='flex';
     $('hdr-room-name').textContent = room;
-    saveRecentRoom(room);
-
-    if(roomStatus === 'pending'){
-      showWaitingRoom();
-    } else {
-      showChatRoom();
-    }
     connectWS();
     initScreenshotDeterrence();
+    saveRecentRoom(room);
   }
-
-  function showWaitingRoom(){
-    $('chat').style.display = 'none';
-    $('waiting-room').style.display = 'flex';
-    $('waiting-owner-name').textContent = roomOwner || 'the owner';
-  }
-
-  function showChatRoom(){
-    $('waiting-room').style.display = 'none';
-    $('chat').style.display = 'flex';
-  }
-
-  $('waiting-leave-btn').addEventListener('click', ()=>{
-    if(ws){ try{ ws.close(); }catch(e){} ws=null; }
-    room = null; roomStatus = null; roomOwner = null;
-    $('waiting-room').style.display = 'none';
-    $('landing').style.display = 'flex';
-  });
 
   // FIND A USER — search registered usernames and jump straight into a
   // 1:1 room with them (no need to share a room code by hand).
@@ -1306,33 +1202,15 @@
       case 'lobby-joined':
         conversations = data.conversations || [];
         myChannels = data.channels || [];
-        joinRequests = data.joinRequests || [];
         renderConversations();
         renderMyChannels();
-        renderJoinRequests();
         break;
       case 'dm-notify':
         upsertConversation(data);
         if(room !== data.room) showToast(`New message from ${data.from}`);
         break;
-      case 'join-request':
-        upsertJoinRequestGroup(data.room, data.pending || []);
-        showToast('Someone wants to join a room you own');
-        break;
-      case 'pending-updated':
-        joinRequests = joinRequests.map(g => g.room === data.room ? { room: data.room, pending: data.pending || [] } : g).filter(g => g.pending.length);
-        renderJoinRequests();
-        break;
       default: break;
     }
-  }
-
-  function upsertJoinRequestGroup(roomCode, pending){
-    const existing = joinRequests.find(g => g.room === roomCode);
-    if(existing) existing.pending = pending;
-    else joinRequests.push({ room: roomCode, pending });
-    joinRequests = joinRequests.filter(g => g.pending.length);
-    renderJoinRequests();
   }
 
   function upsertConversation(notif){
@@ -1383,90 +1261,6 @@
       item.addEventListener('click', ()=>{ $('room-input').value = item.dataset.code; enterRoom(); });
     });
   }
-
-  // JOIN REQUESTS — people waiting on a room I own, shown on the landing
-  // page (across all my rooms) and, separately, in the current room's
-  // header (just that room), so approving works whether I'm browsing or
-  // already sitting inside the chat.
-  async function respondToJoinRequest(roomCode, username, action){
-    try{
-      const res = await fetch(`/api/rooms/${encodeURIComponent(roomCode)}/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ username })
-      });
-      if(!res.ok){ const d = await res.json().catch(()=>({})); showToast(d.error || 'Could not update that request'); return; }
-      // Optimistically trim local state — the server also pushes a
-      // pending-updated event, but this keeps the UI snappy.
-      const group = joinRequests.find(g => g.room === roomCode);
-      if(group){ group.pending = group.pending.filter(p => p.username.toLowerCase() !== username.toLowerCase()); joinRequests = joinRequests.filter(g => g.pending.length); }
-      if(roomCode === room) roomPendingList = roomPendingList.filter(p => p.username.toLowerCase() !== username.toLowerCase());
-      renderJoinRequests();
-      renderRoomPendingPanel();
-    }catch(e){ showToast('Could not reach the server'); }
-  }
-
-  function joinReqRowHtml(roomCode, username){
-    return `
-      <div class="join-req-row" data-room="${esc(roomCode)}" data-user="${esc(username)}">
-        <div class="join-req-name">${esc(username)}</div>
-        <button class="join-req-approve" data-action="approve">Approve</button>
-        <button class="join-req-deny" data-action="deny">Deny</button>
-      </div>`;
-  }
-
-  function bindJoinReqButtons(container){
-    container.querySelectorAll('[data-action]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const row = btn.closest('[data-room]');
-        respondToJoinRequest(row.dataset.room, row.dataset.user, btn.dataset.action);
-      });
-    });
-  }
-
-  function renderJoinRequests(){
-    const block = $('join-requests-block');
-    const list = $('join-requests-list');
-    if(!joinRequests.length){ block.style.display = 'none'; list.innerHTML=''; return; }
-    block.style.display = 'block';
-    list.innerHTML = joinRequests.map(g => `
-      <div class="join-req-group">
-        <div class="join-req-room mono">${esc(g.room)}</div>
-        ${g.pending.map(p => joinReqRowHtml(g.room, p.username)).join('')}
-      </div>
-    `).join('');
-    bindJoinReqButtons(list);
-  }
-
-  function renderRoomPendingPanel(){
-    const btn = $('room-pending-btn');
-    const count = $('room-pending-count');
-    const panel = $('room-pending-panel');
-    const list = $('room-pending-list');
-    if(!roomPendingList.length){
-      btn.style.display = 'none';
-      panel.style.display = 'none';
-      list.innerHTML = '';
-      return;
-    }
-    btn.style.display = 'flex';
-    count.style.display = 'flex';
-    count.textContent = String(roomPendingList.length);
-    list.innerHTML = roomPendingList.map(p => joinReqRowHtml(room, p.username)).join('');
-    bindJoinReqButtons(list);
-  }
-
-  $('room-pending-btn').addEventListener('click', (e)=>{
-    e.stopPropagation();
-    const panel = $('room-pending-panel');
-    panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-  });
-  document.addEventListener('click', (e)=>{
-    const panel = $('room-pending-panel');
-    if(panel.style.display === 'block' && !panel.contains(e.target) && e.target !== $('room-pending-btn') && !$('room-pending-btn').contains(e.target)){
-      panel.style.display = 'none';
-    }
-  });
 
   $('create-channel-btn').addEventListener('click', async ()=>{
     const name = $('channel-name-input').value.trim();
@@ -1552,46 +1346,8 @@
         });
         renderEmptyState();
         updateHeaderForRoomKind(data);
-        roomPendingList = data.isOwner ? (data.pendingRequests || []) : [];
-        renderRoomPendingPanel();
         break;
       case 'presence': updatePresence(data.users); break;
-      case 'pending':
-        // Defensive: normally handled synchronously by enterRoom(), but if
-        // this arrives after the chat view is already showing, drop back
-        // to the waiting screen rather than leaving a broken/empty chat up.
-        roomStatus = 'pending';
-        showWaitingRoom();
-        break;
-      case 'membership-approved': {
-        if(data.room !== room) break;
-        showToast("You've been approved — you're in!");
-        roomStatus = 'member';
-        showChatRoom();
-        // The current socket was parked in the pending state — close it
-        // without triggering its auto-reconnect, then open a fresh one
-        // that the server will now treat as a full member.
-        if(ws){ const old = ws; ws = null; old.onclose = null; try{ old.close(); }catch(e){} }
-        connectWS();
-        break;
-      }
-      case 'membership-denied':
-        if(data.room !== room) break;
-        showToast('The room owner declined your request to join');
-        if(ws){ try{ ws.close(); }catch(e){} ws=null; }
-        room = null; roomStatus = null; roomOwner = null;
-        $('waiting-room').style.display = 'none';
-        $('landing').style.display = 'flex';
-        break;
-      case 'pending-updated':
-        if(data.room === room){ roomPendingList = data.pending || []; renderRoomPendingPanel(); }
-        joinRequests = joinRequests.map(g => g.room === data.room ? { room: data.room, pending: data.pending || [] } : g).filter(g => g.pending.length);
-        renderJoinRequests();
-        break;
-      case 'join-request':
-        if(data.room === room){ roomPendingList = data.pending || []; renderRoomPendingPanel(); showToast('Someone wants to join this room'); }
-        upsertJoinRequestGroup(data.room, data.pending || []);
-        break;
       case 'message': {
         const d = { sender:data.sender, type:data.msgType, payload:data.payload, createdAt:data.createdAt, readBy:{} };
         messages[data.id] = d;
@@ -1764,14 +1520,13 @@
       hangupCall(true);
       if(ws){ room=null; ws.close(); ws=null; }
       currentPeer = null;
-      roomStatus = null; roomOwner = null; roomPendingList = [];
       $('chat').style.display='none';
       $('landing').style.display='flex';
       $('msg-scroll').innerHTML = '<div class="empty-state" id="empty-state"><div>No messages yet.</div></div>';
       messages = {};
-      $('room-owner-note').style.display='none';
-      $('room-pending-panel').style.display='none';
-      $('room-pending-btn').style.display='none';
+      $('room-pin-note').style.display='none';
+      $('room-pin-field').style.display='none';
+      $('room-pin-input').value='';
       setRoomError('');
     }
   });
