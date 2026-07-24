@@ -512,7 +512,7 @@ const server = http.createServer(async (req, res) => {
 
       // DMs and channels have their own access model — this gate only
       // applies to plain group room codes.
-      if (!isOwnableRoom(code)) return sendJson(res, 200, { ok: true, code, isOwner: false, status: 'member' });
+      if (!isOwnableRoom(code)) return sendJson(res, 200, { ok: true, code, isOwner: false, requiresPin: false });
 
       const username = payload.sub;
       const usernameKey = username.toLowerCase();
@@ -520,56 +520,30 @@ const server = http.createServer(async (req, res) => {
 
       // Brand-new room code: whoever gets here first becomes the owner.
       if (!entry) {
-        entry = { ownerKey: usernameKey, owner: username, approved: new Set([usernameKey]), pending: new Map(), createdAt: Date.now() };
+        entry = { ownerKey: usernameKey, owner: username, pin: generateRoomPin(), approved: new Set([usernameKey]), createdAt: Date.now() };
         roomAccess.set(code, entry);
-        return sendJson(res, 200, { ok: true, code, isOwner: true, status: 'owner', owner: username });
+        return sendJson(res, 200, { ok: true, code, isOwner: true, pin: entry.pin });
       }
 
       if (usernameKey === entry.ownerKey) {
-        return sendJson(res, 200, { ok: true, code, isOwner: true, status: 'owner', owner: entry.owner });
+        return sendJson(res, 200, { ok: true, code, isOwner: true, pin: entry.pin });
       }
       if (entry.approved.has(usernameKey)) {
-        return sendJson(res, 200, { ok: true, code, isOwner: false, status: 'member', owner: entry.owner });
+        return sendJson(res, 200, { ok: true, code, isOwner: false });
       }
 
-      // Not approved yet — no code needed to get this far. Register (or
-      // refresh) a pending join request; the owner has to approve it,
-      // whether they're online right now or not, before this account can
-      // see or send anything in the room.
-      addPendingRequest(code, entry, username);
-      return sendJson(res, 200, { ok: true, code, isOwner: false, status: 'pending', owner: entry.owner });
-    }
-
-    if (req.method === 'POST' && /^\/api\/rooms\/[^/]+\/(approve|deny)$/.test(url.pathname)) {
-      const auth = req.headers.authorization || '';
-      const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-      const payload = token && verifyToken(token);
-      if (!payload) return sendJson(res, 401, { error: 'Invalid or expired token' });
-
-      const parts = url.pathname.split('/'); // ['', 'api', 'rooms', code, 'approve'|'deny']
-      const code = decodeURIComponent(parts[3]);
-      const action = parts[4];
-      const entry = roomAccess.get(code);
-      if (!entry) return sendJson(res, 404, { error: 'Unknown room' });
-      if (payload.sub.toLowerCase() !== entry.ownerKey) {
-        return sendJson(res, 403, { error: 'Only the room owner can manage join requests' });
+      // Not yet approved — must supply the owner's 6-digit PIN.
+      if (pinRateLimited(`${code}:${usernameKey}`)) {
+        return sendJson(res, 429, { error: 'Too many attempts — wait a minute and try again.', needsPin: true });
+      }
+      const pin = String(body.pin || '').trim();
+      if (!pin) return sendJson(res, 403, { error: 'This room needs a 6-digit code from its owner', needsPin: true });
+      if (!/^\d{6}$/.test(pin) || pin !== entry.pin) {
+        return sendJson(res, 403, { error: 'Incorrect code — check with the room owner', needsPin: true });
       }
 
-      const raw = await readBody(req);
-      let body; try { body = JSON.parse(raw || '{}'); } catch (e) { body = {}; }
-      const targetKey = String(body.username || '').toLowerCase();
-      const targetName = entry.pending.get(targetKey);
-      if (!targetName) return sendJson(res, 404, { error: 'No pending request from that user' });
-
-      entry.pending.delete(targetKey);
-      if (action === 'approve') {
-        entry.approved.add(targetKey);
-        sendToUser(targetKey, { type: 'membership-approved', room: code });
-      } else {
-        sendToUser(targetKey, { type: 'membership-denied', room: code });
-      }
-      sendToUser(entry.ownerKey, { type: 'pending-updated', room: code, pending: pendingList(entry) });
-      return sendJson(res, 200, { ok: true });
+      entry.approved.add(usernameKey);
+      return sendJson(res, 200, { ok: true, code, isOwner: false });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/health') {
@@ -600,18 +574,18 @@ const server = http.createServer(async (req, res) => {
 const rooms = new Map();
 
 // ---------------------------------------------------------------------------
-// Group room ownership + live join-request approval.
+// Group room ownership + join PIN ("owner approval").
 //
 // The first account to enter a fresh, plain room code (not a dm- or ch-
-// room) becomes that room's owner. Anyone else can walk straight in — no
-// code required — but lands in a view-only "pending" state: they can't see
-// messages, presence, or send anything until the owner approves them.
-// Requests survive the owner being offline (they just queue up in memory)
-// and are pushed to the owner live the moment they're back online, in the
-// room itself or the lobby. Like message content, none of this is ever
-// written to disk or a database — it resets if the server restarts.
+// room) becomes that room's owner and is handed a random 6-digit PIN.
+// Anyone else who tries to enter must supply that exact PIN — matching it
+// is treated as the owner's approval and adds them to the room's approved
+// set; a wrong or missing PIN is refused outright. Like message content,
+// this lives only in memory and resets if the server restarts — nothing
+// about it is ever written to disk or a database.
 // ---------------------------------------------------------------------------
-const roomAccess = new Map(); // code -> { ownerKey, owner, approved: Set<usernameKey>, pending: Map<usernameKey, username>, createdAt }
+const roomAccess = new Map(); // code -> { ownerKey, owner, pin, approved: Set<usernameKey>, createdAt }
+const pinAttempts = new Map(); // `${code}:${usernameKey}` -> { count, resetAt }
 
 function normalizeRoomCode(raw) {
   return String(raw || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 60);
@@ -619,22 +593,23 @@ function normalizeRoomCode(raw) {
 function isOwnableRoom(code) {
   return !!code && code !== '__lobby__' && !code.startsWith('dm-') && !code.startsWith('ch-');
 }
+function generateRoomPin() {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+}
+function pinRateLimited(id) {
+  const now = Date.now();
+  let entry = pinAttempts.get(id);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + 60_000 };
+    pinAttempts.set(id, entry);
+  }
+  entry.count++;
+  return entry.count > 10; // 10 pin guesses/minute per (room, user) — 1-in-1M code, this keeps guessing infeasible
+}
 function isApprovedForRoom(code, usernameKey) {
   const entry = roomAccess.get(code);
   if (!entry) return true; // not an owned room (yet) — nothing to gate
   return usernameKey === entry.ownerKey || entry.approved.has(usernameKey);
-}
-function pendingList(entry) {
-  return Array.from(entry.pending.values()).map((username) => ({ username }));
-}
-// Registers (or refreshes) a pending join request and pushes a live
-// notification to every socket the owner currently has open (room, lobby,
-// or both) — a no-op that just queues silently if the owner is offline.
-function addPendingRequest(code, entry, username) {
-  const key = username.toLowerCase();
-  if (entry.approved.has(key) || entry.pending.has(key)) return;
-  entry.pending.set(key, username);
-  sendToUser(entry.ownerKey, { type: 'join-request', room: code, pending: pendingList(entry) });
 }
 
 // 'ch-' rooms are permanent public channels — never swept even with no
@@ -740,13 +715,7 @@ function buildConversationsList(usernameKey) {
 async function sendLobbyState(ws, username) {
   const usernameKey = username.toLowerCase();
   const [myChannels] = await Promise.all([getUserChannels(usernameKey)]);
-  const joinRequests = [];
-  for (const [code, entry] of roomAccess) {
-    if (entry.ownerKey === usernameKey && entry.pending.size) {
-      joinRequests.push({ room: code, pending: pendingList(entry) });
-    }
-  }
-  send(ws, { type: 'lobby-joined', conversations: buildConversationsList(usernameKey), channels: myChannels, joinRequests });
+  send(ws, { type: 'lobby-joined', conversations: buildConversationsList(usernameKey), channels: myChannels });
 }
 
 function scheduleDeleteIfNeeded(roomCode, room, id) {
@@ -771,11 +740,6 @@ function scheduleDeleteIfNeeded(roomCode, room, id) {
 setInterval(() => {
   for (const [code, room] of rooms) {
     if (room.permanent) continue;
-    const access = roomAccess.get(code);
-    // Pending members never join room.clients, so an owner-offline room
-    // with someone waiting on approval would otherwise look "empty" and
-    // get swept — keep it alive while a join request is outstanding.
-    if (access && access.pending.size) continue;
     if (room.clients.size === 0 && room.messages.size === 0) {
       rooms.delete(code);
       roomAccess.delete(code);
@@ -803,26 +767,19 @@ server.on('upgrade', (req, socket, head) => {
   const payload = token && verifyToken(token);
   if (!payload || !roomCode) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); socket.destroy(); return; }
 
-  // Owner-approval gate: a group room that already has an owner lets
-  // anyone connect (no code required), but marks them pending unless
-  // they're the owner or already approved — the connection handler below
-  // keeps pending sockets view-only until the owner approves them.
-  let pendingApproval = false;
-  if (isOwnableRoom(roomCode)) {
-    const usernameKey = payload.sub.toLowerCase();
-    if (!isApprovedForRoom(roomCode, usernameKey)) {
-      const entry = roomAccess.get(roomCode);
-      if (!entry) { socket.write('HTTP/1.1 403 Forbidden\r\n\r\n'); socket.destroy(); return; }
-      pendingApproval = true;
-      addPendingRequest(roomCode, entry, payload.sub);
-    }
+  // Owner-approval gate: a group room that already has an owner will only
+  // let the owner or a PIN-approved user's socket through. Anyone else gets
+  // dropped here even if they somehow skip the /api/rooms/enter check.
+  if (isOwnableRoom(roomCode) && !isApprovedForRoom(roomCode, payload.sub.toLowerCase())) {
+    socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+    socket.destroy();
+    return;
   }
 
   wss.handleUpgrade(req, socket, head, (ws) => {
     ws.username = payload.sub;
     ws.roomCode = roomCode;
     ws.peer = peer;
-    ws.pendingApproval = pendingApproval;
     wss.emit('connection', ws, req);
   });
 });
@@ -845,20 +802,6 @@ wss.on('connection', (ws) => {
   }
 
   const roomCode = ws.roomCode;
-
-  // Pending members: connected, but parked view-only until the room's
-  // owner approves them. They never touch room.clients/messages/presence —
-  // this socket just sits open so the server can push an
-  // 'membership-approved'/'membership-denied' event to it the instant the
-  // owner decides, whether that's seconds or hours from now.
-  if (ws.pendingApproval) {
-    send(ws, { type: 'pending', room: roomCode });
-    ws.on('message', () => {}); // pending members can't send anything
-    ws.on('close', () => removeUserConnection(usernameKey, ws));
-    ws.on('error', () => {});
-    return;
-  }
-
   const room = getRoom(roomCode);
   const isDm = roomCode.startsWith('dm-');
   const isChannel = roomCode.startsWith('ch-');
@@ -889,12 +832,6 @@ wss.on('connection', (ws) => {
     } else if (isChannel) {
       const channel = await getChannel(roomCode).catch(() => null);
       if (channel) { meta.channelName = channel.name; meta.channelDescription = channel.description; meta.memberCount = channel.memberCount; }
-    } else if (isOwnableRoom(roomCode)) {
-      const access = roomAccess.get(roomCode);
-      if (access) {
-        meta.isOwner = usernameKey === access.ownerKey;
-        if (meta.isOwner) meta.pendingRequests = pendingList(access);
-      }
     }
 
     send(ws, Object.assign({ type: 'joined', room: roomCode, timerSeconds: room.timerSeconds, presence: presenceList(room), messages: liveMessages }, meta));
