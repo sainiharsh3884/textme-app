@@ -253,6 +253,20 @@
     .search-result-msg-btn:hover { background: var(--accent); color: #181310; }
     .search-status { font-size: 12.5px; color: var(--text-faint); margin-top: 10px; text-align: center; }
 
+    /* CHATS (conversation list) & CHANNELS */
+    .chat-item { cursor: pointer; transition: border-color .15s, background .15s; }
+    .chat-item:hover { border-color: var(--accent-dim); background: var(--bg-input); }
+    .chat-item-text { flex: 1; min-width: 0; }
+    .chat-item-name { font-size: 13.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chat-item-preview { font-size: 12px; color: var(--text-faint); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chat-unread-badge {
+      flex-shrink: 0; background: var(--accent); color: #181310;
+      border-radius: 999px; font-size: 11px; font-weight: 700;
+      padding: 2px 7px; min-width: 18px; text-align: center;
+    }
+    #channels-block { margin-top: 22px; }
+    .channel-avatar { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+
     /* CHAT LAYOUT — fully responsive */
     #chat {
       display: none;
@@ -655,6 +669,12 @@
           <div class="recent-rooms-list" id="recent-rooms-list"></div>
         </div>
 
+        <div class="search-divider">your chats</div>
+        <div id="conversations-block">
+          <div class="search-results" id="conversations-list"></div>
+          <div class="search-status" id="conversations-empty">No conversations yet — search a username below to start one.</div>
+        </div>
+
         <div class="search-divider">or find someone</div>
         <div id="search-users-block">
           <div class="field"><label>Search by username</label></div>
@@ -664,6 +684,19 @@
           </div>
           <div class="search-results" id="search-results-list"></div>
           <div class="search-status" id="search-status" style="display:none;"></div>
+        </div>
+
+        <div class="search-divider">channels</div>
+        <div id="channels-block">
+          <div class="search-row">
+            <input id="channel-name-input" type="text" maxlength="40" placeholder="Name a new permanent channel" autocomplete="off">
+            <button class="btn-ghost" id="create-channel-btn">Create</button>
+          </div>
+          <div class="search-results" id="my-channels-list"></div>
+          <div style="display:flex;justify-content:center;margin-top:10px;">
+            <button class="btn-ghost" id="browse-channels-btn">Browse public channels</button>
+          </div>
+          <div class="search-results" id="browse-channels-list" style="display:none;"></div>
         </div>
       </div>
 
@@ -782,6 +815,15 @@
   let room = null;
   let ws = null;
   let wsReconnectAttempts = 0;
+  let currentPeer = null; // set when entering a direct-message room so the server can link both accounts
+
+  // LOBBY — a second, always-on connection (while logged in) used only for
+  // push notifications and the chats/channels list, independent of whatever
+  // specific room the main `ws` above is connected to.
+  let lobbyWs = null;
+  let lobbyReconnectAttempts = 0;
+  let conversations = [];
+  let myChannels = [];
   let timerSeconds = 300;
   let messages = {};
   let burnCheckHandle = null;
@@ -906,6 +948,9 @@
     $('auth-block').style.display = 'none';
     $('room-block').style.display = 'block';
     renderRecentRooms();
+    conversations = []; myChannels = [];
+    renderConversations(); renderMyChannels();
+    connectLobby();
   }
 
   $('logout-btn').addEventListener('click', ()=>{
@@ -914,6 +959,8 @@
     $('auth-block').style.display='block';
     $('room-block').style.display='none';
     $('auth-username').value=''; $('auth-password').value='';
+    if(lobbyWs){ const s=lobbyWs; lobbyWs=null; try{ s.close(); }catch(e){} }
+    conversations = []; myChannels = [];
   });
 
   (async function init(){
@@ -930,10 +977,15 @@
   $('enter-btn').addEventListener('click', enterRoom);
   $('room-input').addEventListener('keydown', e=>{ if(e.key==='Enter') enterRoom(); });
 
-  function enterRoom(){
+  function enterRoom(peer){
     const r = slugRoom($('room-input').value);
     if(!r){ showToast('Enter a room code'); return; }
     room = r;
+    currentPeer = peer || null;
+    if(currentPeer){
+      const c = conversations.find(x => x.room === r);
+      if(c){ c.unread = 0; renderConversations(); }
+    }
     $('landing').style.display='none';
     $('chat').style.display='flex';
     $('hdr-room-name').textContent = room;
@@ -1001,13 +1053,14 @@
 
   function startDirectMessage(username){
     $('room-input').value = dmRoomCode(me, username);
-    enterRoom();
+    enterRoom(username);
   }
 
   // WEBSOCKET
   function connectWS(){
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${location.host}/ws?token=${encodeURIComponent(token)}&room=${encodeURIComponent(room)}`;
+    let url = `${proto}://${location.host}/ws?token=${encodeURIComponent(token)}&room=${encodeURIComponent(room)}`;
+    if(currentPeer) url += `&peer=${encodeURIComponent(currentPeer)}`;
     ws = new WebSocket(url);
     ws.onopen = ()=>{ wsReconnectAttempts = 0; $('conn-dot').classList.remove('offline'); };
     ws.onmessage = (ev)=>{ try{ handleServerMessage(JSON.parse(ev.data)); }catch(e){} };
@@ -1023,6 +1076,159 @@
   }
   function wsSend(obj){ if(ws && ws.readyState===1) ws.send(JSON.stringify(obj)); }
 
+  // LOBBY WEBSOCKET — stays connected while logged in (independent of
+  // whichever chat room `ws` is pointed at) so DMs from anyone can reach
+  // this account and the chats/channels lists stay live.
+  function connectLobby(){
+    if(!token) return;
+    if(lobbyWs){ try{ lobbyWs.close(); }catch(e){} lobbyWs=null; }
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${proto}://${location.host}/ws?token=${encodeURIComponent(token)}&room=__lobby__`;
+    lobbyWs = new WebSocket(url);
+    lobbyWs.onopen = ()=>{ lobbyReconnectAttempts = 0; };
+    lobbyWs.onmessage = (ev)=>{ try{ handleLobbyMessage(JSON.parse(ev.data)); }catch(e){} };
+    lobbyWs.onclose = ()=>{
+      if(!token) return;
+      lobbyReconnectAttempts++;
+      setTimeout(connectLobby, Math.min(1000 * lobbyReconnectAttempts, 8000));
+    };
+    lobbyWs.onerror = ()=>{};
+  }
+
+  function handleLobbyMessage(data){
+    switch(data.type){
+      case 'lobby-joined':
+        conversations = data.conversations || [];
+        myChannels = data.channels || [];
+        renderConversations();
+        renderMyChannels();
+        break;
+      case 'dm-notify':
+        upsertConversation(data);
+        if(room !== data.room) showToast(`New message from ${data.from}`);
+        break;
+      default: break;
+    }
+  }
+
+  function upsertConversation(notif){
+    let c = conversations.find(x => x.room === notif.room);
+    if(!c){ c = { room: notif.room, otherUser: notif.from, lastMessage: null, unread: 0 }; conversations.unshift(c); }
+    c.lastMessage = { sender: notif.from, preview: notif.preview, type: notif.msgType, createdAt: notif.createdAt };
+    c.unread = notif.unread;
+    conversations.sort((a,b) => (b.lastMessage?b.lastMessage.createdAt:0) - (a.lastMessage?a.lastMessage.createdAt:0));
+    renderConversations();
+  }
+
+  function renderConversations(){
+    const el = $('conversations-list');
+    const empty = $('conversations-empty');
+    if(!conversations.length){ el.innerHTML=''; empty.style.display='block'; return; }
+    empty.style.display='none';
+    el.innerHTML = conversations.map(c => `
+      <div class="search-result-item chat-item" data-room="${esc(c.room)}">
+        <div class="search-result-avatar">${esc((c.otherUser||'?')[0]||'?').toUpperCase()}</div>
+        <div class="chat-item-text">
+          <div class="chat-item-name">${esc(c.otherUser)}</div>
+          <div class="chat-item-preview">${c.lastMessage ? esc(c.lastMessage.preview || '') : 'No messages yet'}</div>
+        </div>
+        ${c.unread ? `<span class="chat-unread-badge">${c.unread}</span>` : ''}
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-room]').forEach(item=>{
+      item.addEventListener('click', ()=>{
+        const c = conversations.find(x => x.room === item.dataset.room);
+        if(c) startDirectMessage(c.otherUser);
+      });
+    });
+  }
+
+  function renderMyChannels(){
+    const el = $('my-channels-list');
+    if(!myChannels.length){ el.innerHTML=''; return; }
+    el.innerHTML = myChannels.map(c => `
+      <div class="search-result-item chat-item" data-code="${esc(c.code)}">
+        <div class="search-result-avatar channel-avatar">#</div>
+        <div class="chat-item-text">
+          <div class="chat-item-name">${esc(c.name)}</div>
+          <div class="chat-item-preview">${c.memberCount} member${c.memberCount===1?'':'s'}</div>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-code]').forEach(item=>{
+      item.addEventListener('click', ()=>{ $('room-input').value = item.dataset.code; enterRoom(); });
+    });
+  }
+
+  $('create-channel-btn').addEventListener('click', async ()=>{
+    const name = $('channel-name-input').value.trim();
+    if(!name){ showToast('Enter a channel name'); return; }
+    try{
+      const res = await fetch('/api/channels', {
+        method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${token}`}, body: JSON.stringify({name})
+      });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || 'Could not create channel'); return; }
+      $('channel-name-input').value = '';
+      myChannels.unshift(data.channel);
+      renderMyChannels();
+      showToast(`Channel "${data.channel.name}" created — it'll stay open for anyone to join`);
+      $('room-input').value = data.channel.code;
+      enterRoom();
+    }catch(e){ showToast('Could not reach the server'); }
+  });
+
+  let browseChannelsOpen = false;
+  $('browse-channels-btn').addEventListener('click', async ()=>{
+    if(browseChannelsOpen){
+      browseChannelsOpen = false;
+      $('browse-channels-list').style.display = 'none';
+      $('browse-channels-btn').textContent = 'Browse public channels';
+      return;
+    }
+    try{
+      const res = await fetch('/api/channels', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      renderBrowseChannels(data.channels || []);
+      browseChannelsOpen = true;
+      $('browse-channels-list').style.display = 'flex';
+      $('browse-channels-btn').textContent = 'Hide public channels';
+    }catch(e){ showToast('Could not reach the server'); }
+  });
+
+  function renderBrowseChannels(chs){
+    const el = $('browse-channels-list');
+    if(!chs.length){ el.innerHTML = `<div class="search-status" style="display:block;">No public channels yet — create the first one above.</div>`; return; }
+    el.innerHTML = chs.map(c => `
+      <div class="search-result-item">
+        <div class="search-result-avatar channel-avatar">#</div>
+        <div class="chat-item-text">
+          <div class="chat-item-name">${esc(c.name)}</div>
+          <div class="chat-item-preview">${c.memberCount} member${c.memberCount===1?'':'s'}</div>
+        </div>
+        <button class="search-result-msg-btn" data-code="${esc(c.code)}">Join</button>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-code]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const code = btn.dataset.code;
+        try{ await fetch(`/api/channels/${encodeURIComponent(code)}/join`, { method:'POST', headers:{'Authorization':`Bearer ${token}`} }); }catch(e){}
+        $('room-input').value = code;
+        enterRoom();
+      });
+    });
+  }
+
+  function updateHeaderForRoomKind(data){
+    if(data.roomKind === 'channel'){
+      $('hdr-room-name').textContent = data.channelName ? `# ${data.channelName}` : room;
+    } else if(data.roomKind === 'dm' && data.peer){
+      $('hdr-room-name').textContent = data.peer;
+    } else {
+      $('hdr-room-name').textContent = room;
+    }
+  }
+
   function handleServerMessage(data){
     switch(data.type){
       case 'joined':
@@ -1037,6 +1243,7 @@
           if(m.sender !== me && !(m.readBy && m.readBy[me])) wsSend({type:'read', id:m.id});
         });
         renderEmptyState();
+        updateHeaderForRoomKind(data);
         break;
       case 'presence': updatePresence(data.users); break;
       case 'message': {
@@ -1210,6 +1417,7 @@
     if(confirm('Leave this room?')){
       hangupCall(true);
       if(ws){ room=null; ws.close(); ws=null; }
+      currentPeer = null;
       $('chat').style.display='none';
       $('landing').style.display='flex';
       $('msg-scroll').innerHTML = '<div class="empty-state" id="empty-state"><div>No messages yet.</div></div>';
