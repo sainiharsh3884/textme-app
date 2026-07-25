@@ -199,7 +199,17 @@ async function initChannelStore() {
       )
     `);
   } else {
-    try { channels = JSON.parse(fs.readFileSync(CHANNELS_FILE, 'utf8')); } catch (e) { channels = {}; }
+    try {
+      channels = JSON.parse(fs.readFileSync(CHANNELS_FILE, 'utf8'));
+      // Migration: ensure every channel has a members object
+      for (const code of Object.keys(channels)) {
+        if (!channels[code].members || typeof channels[code].members !== 'object') {
+          channels[code].members = {};
+        }
+      }
+    } catch (e) {
+      channels = {};
+    }
   }
 }
 function saveChannelsToFile() {
@@ -222,7 +232,7 @@ async function getChannel(code) {
   }
   const c = channels[code];
   if (!c) return null;
-  const members = Object.values(c.members);
+  const members = c.members ? Object.values(c.members) : [];
   const accepted = members.filter(m => m.status === 'accepted');
   const pending = members.filter(m => m.status === 'pending');
   return { code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: accepted.length, pendingCount: pending.length };
@@ -262,7 +272,7 @@ async function listChannels(limit = 100) {
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, limit)
     .map(c => {
-      const members = Object.values(c.members);
+      const members = c.members ? Object.values(c.members) : [];
       const accepted = members.filter(m => m.status === 'accepted');
       const pending = members.filter(m => m.status === 'pending');
       return { code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: accepted.length, pendingCount: pending.length };
@@ -307,7 +317,7 @@ async function getChannelMembers(code, statusFilter = null) {
   }
   const c = channels[code];
   if (!c) return [];
-  const members = Object.values(c.members);
+  const members = c.members ? Object.values(c.members) : [];
   if (statusFilter) return members.filter(m => m.status === statusFilter);
   return members;
 }
@@ -320,7 +330,7 @@ async function updateMemberStatus(code, username, newStatus) {
       [newStatus, code, key]
     );
   } else {
-    if (!channels[code] || !channels[code].members[key]) return;
+    if (!channels[code] || !channels[code].members || !channels[code].members[key]) return;
     channels[code].members[key].status = newStatus;
     saveChannelsToFile();
   }
@@ -355,9 +365,9 @@ async function getUserChannels(usernameKey) {
     return rows;
   }
   return Object.values(channels)
-    .filter(c => usernameKey in c.members)
+    .filter(c => c.members && usernameKey in c.members)
     .map(c => {
-      const members = Object.values(c.members);
+      const members = c.members ? Object.values(c.members) : [];
       const accepted = members.filter(m => m.status === 'accepted');
       const pending = members.filter(m => m.status === 'pending');
       return { code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: accepted.length, pendingCount: pending.length };
