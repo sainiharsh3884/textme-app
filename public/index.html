@@ -606,7 +606,6 @@
   <div id="toast"></div>
   <div id="img-lightbox"><button id="img-lightbox-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button><img id="img-lightbox-img" src="" alt=""></div>
 </div>
-
 <script>
 (function(){
   'use strict';
@@ -683,10 +682,6 @@
   });
 
   function showAuth(){
-    // We'll embed a simple login/signup inline in the main area for simplicity
-    // Since we have a welcome, we can show a modal or replace content.
-    // For simplicity, we'll just prompt using the existing welcome? But we already have the main.
-    // We'll create a simple overlay for auth:
     const overlay = document.createElement('div');
     overlay.id = 'auth-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:999;';
@@ -746,7 +741,6 @@
     conversations = []; myChannels = [];
     renderConversations(); renderMyChannels();
     $('me-label').textContent = '';
-    // show auth again
     showAuth();
   });
 
@@ -786,7 +780,6 @@
         myChannels = data.channels || [];
         renderConversations();
         renderMyChannels();
-        // if there are pending requests, show a notification? We'll handle via UI refresh when manage modal opens.
         break;
       case 'dm-notify':
         upsertConversation(data);
@@ -794,7 +787,6 @@
         break;
       case 'channel-request':
         showToast(`New join request for channel "${data.code}" from ${data.from}`);
-        // refresh rooms if needed
         loadRooms();
         break;
       case 'channel-request-update':
@@ -849,7 +841,7 @@
     empty.style.display='none';
     el.innerHTML = myChannels.map(ch => {
       const isOwner = ch.createdBy && ch.createdBy.toLowerCase() === (me||'').toLowerCase();
-      const status = ch.status || 'accepted'; // default
+      const status = ch.status || 'accepted';
       let actionHtml = '';
       if(isOwner){
         actionHtml = `<button class="channel-action manage" data-code="${esc(ch.code)}" data-action="manage">Manage</button>`;
@@ -881,7 +873,6 @@
           else if(action === 'join') joinChannel(code);
         });
       } else {
-        // click on item itself (for open)
         item.addEventListener('click', ()=>{
           const ch = myChannels.find(c => c.code === code);
           if(ch && ch.status === 'accepted') openChat(code);
@@ -909,10 +900,6 @@
     try{
       const res = await fetch('/api/channels', { headers: { 'Authorization': `Bearer ${token}` } });
       const data = await res.json();
-      // We'll store all channels? We'll use the lobby state, but also we can fetch.
-      // For simplicity, we'll rely on lobby, but we can update.
-      // Actually lobby gives us myChannels only. We also need to show browse list.
-      // We'll fetch separately for browse.
       const allChannels = data.channels || [];
       renderBrowseChannels(allChannels);
     }catch(e){}
@@ -950,7 +937,7 @@
     }
   });
 
-  // Create channel
+  // --- FIX #1: Create channel with optimistic update ---
   $('create-channel-btn').addEventListener('click', async ()=>{
     const name = $('channel-name-input').value.trim();
     if(!name){ showToast('Enter a channel name'); return; }
@@ -962,15 +949,20 @@
       if(!res.ok){ showToast(data.error || 'Could not create'); return; }
       $('channel-name-input').value = '';
       showToast(`Channel "${data.channel.name}" created!`);
-      await refreshMyChannels();
-      loadRooms();
-      openChat(data.channel.code);
+
+      // Optimistically add the new channel to myChannels
+      const newChan = data.channel;
+      if (!myChannels.find(c => c.code === newChan.code)) {
+        myChannels.push(newChan);
+      }
+      renderMyChannels();          // show immediately
+      refreshMyChannels();         // sync in background
+
+      openChat(newChan.code);
     }catch(e){ showToast('Error creating channel'); }
   });
 
-  // Refetch just the current user's channels (owned + joined) so the owner
-  // badge and Manage modal reflect reality right away, instead of waiting
-  // for the lobby WebSocket to reconnect and re-send lobby-joined.
+  // Refetch just the current user's channels
   async function refreshMyChannels(){
     try{
       const res = await fetch('/api/channels/mine', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -1028,7 +1020,6 @@
   function openChat(roomCode, peer){
     currentRoom = roomCode;
     currentPeer = peer || null;
-    // Check if it's a channel to get owner info
     const isChannel = roomCode.startsWith('ch-');
     const ch = myChannels.find(c => c.code === roomCode);
     if(isChannel && ch){
@@ -1041,7 +1032,6 @@
     $('chat-view').classList.add('active');
     $('manage-btn').style.display = isOwner ? 'inline-flex' : 'none';
     $('chat-room-name').textContent = isChannel ? (ch ? ch.name : roomCode) : (peer || roomCode);
-    // Connect to room via WebSocket
     connectWS(roomCode, peer);
   }
 
@@ -1234,14 +1224,14 @@
     wsSend({type:'message', msgType:'contact', payload:{contactName:name, contactPhone:phone}});
   });
 
-  // Manage modal
+  // --- FIX #2: Manage modal – fetch all members (no ?status=all) ---
   async function openManageModal(code){
     const modal = $('manage-modal');
     modal.classList.add('active');
     $('manage-title').textContent = `Manage ${code}`;
-    // Load members
     try{
-      const res = await fetch(`/api/channels/${encodeURIComponent(code)}/members?status=all`, {
+      // Removed ?status=all – server now returns all members
+      const res = await fetch(`/api/channels/${encodeURIComponent(code)}/members`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if(!res.ok){ showToast('Could not load members'); return; }
@@ -1249,7 +1239,6 @@
       const members = data.members || [];
       const pending = members.filter(m => m.status === 'pending');
       const accepted = members.filter(m => m.status === 'accepted');
-      // owner info
       const ch = myChannels.find(c => c.code === code);
       $('manage-owner').textContent = ch ? ch.createdBy : '?';
       // pending list
@@ -1276,7 +1265,7 @@
               });
               if(!res.ok){ showToast('Action failed'); return; }
               showToast(`Request ${action}ed`);
-              openManageModal(code); // refresh
+              openManageModal(code);
             }catch(e){ showToast('Error'); }
           });
         });
@@ -1325,7 +1314,7 @@
   $('img-lightbox-close').addEventListener('click', closeLightbox);
   $('img-lightbox').addEventListener('click', (e)=>{ if(e.target.id==='img-lightbox') closeLightbox(); });
 
-  // Call placeholders (WebRTC not fully implemented in this version)
+  // Call placeholders
   $('call-audio-btn').addEventListener('click', ()=>{ showToast('Call feature coming soon'); });
   $('call-video-btn').addEventListener('click', ()=>{ showToast('Video call coming soon'); });
 
@@ -1345,7 +1334,6 @@
       await afterAuth();
     })();
   } else {
-    // show welcome
     $('welcome').style.display = 'flex';
   }
 
