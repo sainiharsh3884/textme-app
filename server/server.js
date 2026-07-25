@@ -283,25 +283,62 @@ async function joinChannel(code, username) {
   const key = username.toLowerCase();
   const channel = await getChannel(code);
   if (!channel) return null;
+
   const isOwner = channel.createdBy.toLowerCase() === key;
-  const status = isOwner ? 'accepted' : 'pending';
+  if (isOwner) {
+    // Owner is always accepted – ensure they are in the member list
+    if (USE_DB) {
+      await pool.query(
+        `INSERT INTO channel_members (code, username_key, username, status, joined_at)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (code, username_key) DO UPDATE SET status = $4`,
+        [code, key, username, 'accepted', Date.now()]
+      );
+    } else {
+      if (!channels[code].members) channels[code].members = {};
+      channels[code].members[key] = { username, status: 'accepted' };
+      saveChannelsToFile();
+    }
+    return { status: 'accepted', isOwner: true };
+  }
+
+  // Non‑owner: check current membership status
+  let existingStatus = null;
+  if (USE_DB) {
+    const { rows } = await pool.query(
+      'SELECT status FROM channel_members WHERE code = $1 AND username_key = $2',
+      [code, key]
+    );
+    if (rows.length) existingStatus = rows[0].status;
+  } else {
+    const c = channels[code];
+    if (c && c.members && c.members[key]) existingStatus = c.members[key].status;
+  }
+
+  // If already accepted, keep it accepted – do NOT downgrade to pending
+  if (existingStatus === 'accepted') {
+    return { status: 'accepted', isOwner: false };
+  }
+
+  // Otherwise set to pending (first join, or previously declined/pending)
+  const newStatus = 'pending';
   if (USE_DB) {
     await pool.query(
-      'INSERT INTO channel_members (code, username_key, username, status, joined_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (code, username_key) DO UPDATE SET status = $4',
-      [code, key, username, status, Date.now()]
+      `INSERT INTO channel_members (code, username_key, username, status, joined_at)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (code, username_key) DO UPDATE SET status = $4`,
+      [code, key, username, newStatus, Date.now()]
     );
   } else {
-    if (!channels[code]) return null;
     if (!channels[code].members) channels[code].members = {};
-    channels[code].members[key] = { username, status };
+    channels[code].members[key] = { username, status: newStatus };
     saveChannelsToFile();
   }
-  // Notify owner about pending request (only if not owner and status pending)
-  if (!isOwner && status === 'pending') {
-    const owner = channel.createdBy;
-    sendToUser(owner.toLowerCase(), { type: 'channel-request', code, from: username, at: Date.now() });
-  }
-  return { status, isOwner };
+
+  // Notify the owner only if a new pending request is created
+  const owner = channel.createdBy;
+  sendToUser(owner.toLowerCase(), { type: 'channel-request', code, from: username, at: Date.now() });
+  return { status: newStatus, isOwner: false };
 }
 
 async function getChannelMembers(code, statusFilter = null) {
