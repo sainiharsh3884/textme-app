@@ -606,7 +606,8 @@
   <div id="toast"></div>
   <div id="img-lightbox"><button id="img-lightbox-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button><img id="img-lightbox-img" src="" alt=""></div>
 </div>
-<script>
+
+  <script>
 (function(){
   'use strict';
 
@@ -628,7 +629,7 @@
 
   let token = localStorage.getItem('textme_token') || null;
   let me = null;
-  let currentRoom = null; // room code currently open in chat view
+  let currentRoom = null;
   let ws = null;
   let lobbyWs = null;
   let wsReconnectAttempts = 0;
@@ -637,22 +638,20 @@
   let myChannels = [];
   let messages = {};
   let timerSeconds = 300;
-  let currentPeer = null; // for DMs
-  let isOwner = false; // for current channel
+  let currentPeer = null;
+  let isOwner = false;
   let channelOwner = null;
 
   // Call state
   let pc = null, localStream = null, currentCallId = null, callRole = null, peerUsername = null;
   let pendingIce = [], callActive = false;
 
-  // DOM shortcuts
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const linkify = text => esc(text).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
   const fmtTime = ts => new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   const slugRoom = s => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
 
-  // Toast
   function showToast(msg){
     const t = $('toast');
     t.textContent = msg;
@@ -661,7 +660,6 @@
     t._h = setTimeout(()=> t.classList.remove('show'), 3200);
   }
 
-  // Navigation
   function switchTab(tab){
     document.querySelectorAll('#nav-tabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-'+tab));
@@ -673,7 +671,6 @@
     });
   });
 
-  // Welcome & Auth
   $('welcome-cta').addEventListener('click', ()=>{
     $('welcome').style.display = 'none';
     $('main').classList.add('active');
@@ -732,7 +729,6 @@
     passwordInput.addEventListener('keydown', e=>{ if(e.key==='Enter') doAuth(); });
   }
 
-  // Logout
   $('logout-btn').addEventListener('click', ()=>{
     token = null; me = null;
     localStorage.removeItem('textme_token');
@@ -756,7 +752,6 @@
     loadRooms();
   }
 
-  // Lobby WebSocket
   function connectLobby(){
     if(!token) return;
     if(lobbyWs) { try{ lobbyWs.close(); }catch(e){} lobbyWs=null; }
@@ -808,7 +803,6 @@
     renderConversations();
   }
 
-  // Render conversations
   function renderConversations(){
     const el = $('conversations-list');
     const empty = $('conversations-empty');
@@ -833,7 +827,6 @@
     });
   }
 
-  // Render my channels
   function renderMyChannels(){
     const el = $('my-channels-list');
     const empty = $('my-channels-empty');
@@ -844,7 +837,10 @@
       const status = ch.status || 'accepted';
       let actionHtml = '';
       if(isOwner){
-        actionHtml = `<button class="channel-action manage" data-code="${esc(ch.code)}" data-action="manage">Manage</button>`;
+        actionHtml = `
+          <button class="channel-action manage" data-code="${esc(ch.code)}" data-action="manage">Manage</button>
+          <button class="channel-action" data-code="${esc(ch.code)}" data-action="open">Open</button>
+        `;
       } else {
         if(status === 'pending') actionHtml = `<span class="channel-action pending">Pending</span>`;
         else if(status === 'accepted') actionHtml = `<button class="channel-action" data-code="${esc(ch.code)}" data-action="open">Open</button>`;
@@ -861,25 +857,27 @@
         </div>
       `;
     }).join('');
+
     el.querySelectorAll('[data-code]').forEach(item => {
       const code = item.dataset.code;
-      const actionBtn = item.querySelector('[data-action]');
-      if(actionBtn){
-        actionBtn.addEventListener('click', (e)=>{
+      // Attach click listeners to all action buttons inside this item
+      const actionBtns = item.querySelectorAll('[data-action]');
+      actionBtns.forEach(btn => {
+        btn.addEventListener('click', (e)=>{
           e.stopPropagation();
-          const action = actionBtn.dataset.action;
+          const action = btn.dataset.action;
           if(action === 'manage') openManageModal(code);
           else if(action === 'open') openChat(code);
           else if(action === 'join') joinChannel(code);
         });
-      } else {
-        item.addEventListener('click', ()=>{
-          const ch = myChannels.find(c => c.code === code);
-          if(ch && ch.status === 'accepted') openChat(code);
-          else if(ch && ch.status === 'pending') showToast('Your request is pending approval');
-          else joinChannel(code);
-        });
-      }
+      });
+      // Also allow clicking on the whole item to open the chat (if accepted)
+      item.addEventListener('click', ()=>{
+        const ch = myChannels.find(c => c.code === code);
+        if(ch && ch.status === 'accepted') openChat(code);
+        else if(ch && ch.status === 'pending') showToast('Your request is pending approval');
+        else joinChannel(code);
+      });
     });
   }
 
@@ -937,7 +935,7 @@
     }
   });
 
-  // --- FIX #1: Create channel with optimistic update ---
+  // Create channel with optimistic update
   $('create-channel-btn').addEventListener('click', async ()=>{
     const name = $('channel-name-input').value.trim();
     if(!name){ showToast('Enter a channel name'); return; }
@@ -950,19 +948,16 @@
       $('channel-name-input').value = '';
       showToast(`Channel "${data.channel.name}" created!`);
 
-      // Optimistically add the new channel to myChannels
       const newChan = data.channel;
       if (!myChannels.find(c => c.code === newChan.code)) {
         myChannels.push(newChan);
       }
-      renderMyChannels();          // show immediately
-      refreshMyChannels();         // sync in background
-
+      renderMyChannels();
+      refreshMyChannels();
       openChat(newChan.code);
     }catch(e){ showToast('Error creating channel'); }
   });
 
-  // Refetch just the current user's channels
   async function refreshMyChannels(){
     try{
       const res = await fetch('/api/channels/mine', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -1016,7 +1011,6 @@
     }catch(e){ statusEl.textContent='Error searching'; }
   }
 
-  // Open chat view
   function openChat(roomCode, peer){
     currentRoom = roomCode;
     currentPeer = peer || null;
@@ -1035,7 +1029,6 @@
     connectWS(roomCode, peer);
   }
 
-  // Close chat view
   $('chat-back').addEventListener('click', ()=>{
     $('chat-view').classList.remove('active');
     if(ws){ ws.close(); ws = null; }
@@ -1048,14 +1041,12 @@
     messages = {};
   });
 
-  // Leave chat
   $('leave-chat-btn').addEventListener('click', ()=>{
     if(confirm('Leave this room?')){
       $('chat-back').click();
     }
   });
 
-  // WebSocket connection for room
   function connectWS(roomCode, peer){
     if(ws){ try{ ws.close(); }catch(e){} ws=null; }
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -1169,12 +1160,10 @@
 
   function fmtCountdown(ms){ if(ms<=0) return '0:00'; const s=Math.ceil(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
 
-  // Timer change
   $('timer-select').addEventListener('change', ()=>{
     wsSend({type:'settings', timerSeconds: parseInt($('timer-select').value,10)});
   });
 
-  // Send text
   $('send-btn').addEventListener('click', doSendText);
   $('text-input').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); doSendText(); } });
   $('text-input').addEventListener('input', function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,80)+'px'; });
@@ -1185,7 +1174,6 @@
     $('text-input').value=''; $('text-input').style.height='auto';
   }
 
-  // Media attachments
   $('attach-image-btn').addEventListener('click', ()=> $('file-image').click());
   $('file-image').addEventListener('change', async (e)=>{
     const f = e.target.files[0]; e.target.value='';
@@ -1224,13 +1212,12 @@
     wsSend({type:'message', msgType:'contact', payload:{contactName:name, contactPhone:phone}});
   });
 
-  // --- FIX #2: Manage modal – fetch all members (no ?status=all) ---
+  // Manage modal - fixed to fetch all members (no ?status=all)
   async function openManageModal(code){
     const modal = $('manage-modal');
     modal.classList.add('active');
     $('manage-title').textContent = `Manage ${code}`;
     try{
-      // Removed ?status=all – server now returns all members
       const res = await fetch(`/api/channels/${encodeURIComponent(code)}/members`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -1241,7 +1228,6 @@
       const accepted = members.filter(m => m.status === 'accepted');
       const ch = myChannels.find(c => c.code === code);
       $('manage-owner').textContent = ch ? ch.createdBy : '?';
-      // pending list
       const pendingEl = $('pending-list');
       if(!pending.length){ pendingEl.innerHTML = '<div style="color:var(--text-faint);font-size:13px;">No pending requests</div>'; }
       else {
@@ -1270,7 +1256,6 @@
           });
         });
       }
-      // members list
       const membersEl = $('members-list');
       if(!accepted.length){ membersEl.innerHTML = '<div style="color:var(--text-faint);font-size:13px;">No members yet</div>'; }
       else {
@@ -1281,7 +1266,6 @@
         `).join('');
       }
     }catch(e){ showToast('Error loading members'); }
-    // Delete channel
     $('delete-channel-btn').onclick = async ()=>{
       if(!confirm(`Delete channel "${code}" permanently? This cannot be undone.`)) return;
       try{
@@ -1314,11 +1298,9 @@
   $('img-lightbox-close').addEventListener('click', closeLightbox);
   $('img-lightbox').addEventListener('click', (e)=>{ if(e.target.id==='img-lightbox') closeLightbox(); });
 
-  // Call placeholders
   $('call-audio-btn').addEventListener('click', ()=>{ showToast('Call feature coming soon'); });
   $('call-video-btn').addEventListener('click', ()=>{ showToast('Video call coming soon'); });
 
-  // Load conversations on startup
   async function loadConversations(){
     try{
       const res = await fetch('/api/conversations', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -1328,7 +1310,6 @@
     }catch(e){}
   }
 
-  // Auto init if token exists
   if(token){
     (async ()=>{
       await afterAuth();
