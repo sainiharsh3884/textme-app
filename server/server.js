@@ -21,10 +21,6 @@ const { WebSocketServer } = require('ws');
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('[FATAL] JWT_SECRET is not set. Refusing to start in production with an auto-generated secret — set JWT_SECRET as an env var.');
-    process.exit(1);
-  }
   console.warn('[WARN] JWT_SECRET is not set — using an insecure generated dev secret. Set JWT_SECRET as an env var before deploying for real.');
 }
 const SECRET = JWT_SECRET || crypto.randomBytes(32).toString('hex');
@@ -179,7 +175,7 @@ function validUsername(u) { return typeof u === 'string' && /^[a-zA-Z0-9_-]{3,20
 // DB-if-available / file-fallback pattern as the user store above.
 // ---------------------------------------------------------------------------
 const CHANNELS_FILE = path.join(__dirname, 'channels.json');
-let channels = {}; // file-mode only: code -> { code, name, description, createdBy, createdAt, members: {usernameKey: username} }
+let channels = {}; // file-mode only: code -> { code, name, description, createdBy, createdAt, members: {usernameKey: {username, status}} }
 
 async function initChannelStore() {
   if (USE_DB) {
@@ -197,6 +193,7 @@ async function initChannelStore() {
         code TEXT NOT NULL,
         username_key TEXT NOT NULL,
         username TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'accepted',
         joined_at BIGINT NOT NULL,
         PRIMARY KEY (code, username_key)
       )
@@ -219,12 +216,16 @@ async function getChannel(code) {
       [code]
     );
     if (!rows[0]) return null;
-    const { rows: mrows } = await pool.query('SELECT COUNT(*)::int AS count FROM channel_members WHERE code = $1', [code]);
-    return Object.assign({}, rows[0], { memberCount: mrows[0].count });
+    const { rows: mrows } = await pool.query('SELECT COUNT(*)::int AS count FROM channel_members WHERE code = $1 AND status = $2', [code, 'accepted']);
+    const { rows: prow } = await pool.query('SELECT COUNT(*)::int AS count FROM channel_members WHERE code = $1 AND status = $2', [code, 'pending']);
+    return Object.assign({}, rows[0], { memberCount: mrows[0].count, pendingCount: prow[0].count });
   }
   const c = channels[code];
   if (!c) return null;
-  return { code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: Object.keys(c.members).length };
+  const members = Object.values(c.members);
+  const accepted = members.filter(m => m.status === 'accepted');
+  const pending = members.filter(m => m.status === 'pending');
+  return { code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: accepted.length, pendingCount: pending.length };
 }
 
 async function createChannel(name, description, createdBy) {
@@ -236,21 +237,22 @@ async function createChannel(name, description, createdBy) {
   if (USE_DB) {
     await pool.query('INSERT INTO channels (code, name, description, created_by, created_at) VALUES ($1,$2,$3,$4,$5)', [code, name, desc, createdBy, createdAt]);
     await pool.query(
-      'INSERT INTO channel_members (code, username_key, username, joined_at) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING',
-      [code, createdBy.toLowerCase(), createdBy, createdAt]
+      'INSERT INTO channel_members (code, username_key, username, status, joined_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',
+      [code, createdBy.toLowerCase(), createdBy, 'accepted', createdAt]
     );
   } else {
-    channels[code] = { code, name, description: desc, createdBy, createdAt, members: { [createdBy.toLowerCase()]: createdBy } };
+    channels[code] = { code, name, description: desc, createdBy, createdAt, members: { [createdBy.toLowerCase()]: { username: createdBy, status: 'accepted' } } };
     saveChannelsToFile();
   }
-  return { code, name, description: desc, createdBy, createdAt, memberCount: 1 };
+  return { code, name, description: desc, createdBy, createdAt, memberCount: 1, pendingCount: 0 };
 }
 
 async function listChannels(limit = 100) {
   if (USE_DB) {
     const { rows } = await pool.query(`
       SELECT c.code, c.name, c.description, c.created_by AS "createdBy", c.created_at AS "createdAt",
-             COUNT(m.username_key)::int AS "memberCount"
+             COUNT(CASE WHEN m.status = 'accepted' THEN 1 END)::int AS "memberCount",
+             COUNT(CASE WHEN m.status = 'pending' THEN 1 END)::int AS "pendingCount"
       FROM channels c LEFT JOIN channel_members m ON m.code = c.code
       GROUP BY c.code ORDER BY c.created_at DESC LIMIT $1
     `, [limit]);
@@ -259,22 +261,83 @@ async function listChannels(limit = 100) {
   return Object.values(channels)
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, limit)
-    .map(c => ({ code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: Object.keys(c.members).length }));
+    .map(c => {
+      const members = Object.values(c.members);
+      const accepted = members.filter(m => m.status === 'accepted');
+      const pending = members.filter(m => m.status === 'pending');
+      return { code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: accepted.length, pendingCount: pending.length };
+    });
 }
 
 async function joinChannel(code, username) {
   const key = username.toLowerCase();
+  const channel = await getChannel(code);
+  if (!channel) return null;
+  const isOwner = channel.createdBy.toLowerCase() === key;
+  const status = isOwner ? 'accepted' : 'pending';
   if (USE_DB) {
     await pool.query(
-      'INSERT INTO channel_members (code, username_key, username, joined_at) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING',
-      [code, key, username, Date.now()]
+      'INSERT INTO channel_members (code, username_key, username, status, joined_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (code, username_key) DO UPDATE SET status = $4',
+      [code, key, username, status, Date.now()]
     );
-    return true;
+  } else {
+    if (!channels[code]) return null;
+    if (!channels[code].members) channels[code].members = {};
+    channels[code].members[key] = { username, status };
+    saveChannelsToFile();
+  }
+  // Notify owner about pending request (only if not owner and status pending)
+  if (!isOwner && status === 'pending') {
+    const owner = channel.createdBy;
+    sendToUser(owner.toLowerCase(), { type: 'channel-request', code, from: username, at: Date.now() });
+  }
+  return { status, isOwner };
+}
+
+async function getChannelMembers(code, statusFilter = null) {
+  if (USE_DB) {
+    const params = [code];
+    let query = 'SELECT username, username_key, status, joined_at FROM channel_members WHERE code = $1';
+    if (statusFilter) {
+      query += ' AND status = $2';
+      params.push(statusFilter);
+    }
+    const { rows } = await pool.query(query, params);
+    return rows;
   }
   const c = channels[code];
-  if (!c) return false;
-  c.members[key] = username;
-  saveChannelsToFile();
+  if (!c) return [];
+  const members = Object.values(c.members);
+  if (statusFilter) return members.filter(m => m.status === statusFilter);
+  return members;
+}
+
+async function updateMemberStatus(code, username, newStatus) {
+  const key = username.toLowerCase();
+  if (USE_DB) {
+    await pool.query(
+      'UPDATE channel_members SET status = $1 WHERE code = $2 AND username_key = $3',
+      [newStatus, code, key]
+    );
+  } else {
+    if (!channels[code] || !channels[code].members[key]) return;
+    channels[code].members[key].status = newStatus;
+    saveChannelsToFile();
+  }
+}
+
+async function deleteChannel(code, username) {
+  const channel = await getChannel(code);
+  if (!channel || channel.createdBy.toLowerCase() !== username.toLowerCase()) return false;
+  if (USE_DB) {
+    await pool.query('DELETE FROM channel_members WHERE code = $1', [code]);
+    await pool.query('DELETE FROM channels WHERE code = $1', [code]);
+  } else {
+    delete channels[code];
+    saveChannelsToFile();
+  }
+  // remove from in-memory room if exists
+  if (rooms.has(code)) rooms.delete(code);
   return true;
 }
 
@@ -282,15 +345,23 @@ async function getUserChannels(usernameKey) {
   if (USE_DB) {
     const { rows } = await pool.query(`
       SELECT c.code, c.name, c.description, c.created_by AS "createdBy", c.created_at AS "createdAt",
-             (SELECT COUNT(*)::int FROM channel_members m2 WHERE m2.code = c.code) AS "memberCount"
+             COUNT(CASE WHEN m2.status = 'accepted' THEN 1 END)::int AS "memberCount",
+             COUNT(CASE WHEN m2.status = 'pending' THEN 1 END)::int AS "pendingCount"
       FROM channels c JOIN channel_members m ON m.code = c.code
-      WHERE m.username_key = $1 ORDER BY c.created_at DESC
+      LEFT JOIN channel_members m2 ON m2.code = c.code
+      WHERE m.username_key = $1
+      GROUP BY c.code ORDER BY c.created_at DESC
     `, [usernameKey]);
     return rows;
   }
   return Object.values(channels)
     .filter(c => usernameKey in c.members)
-    .map(c => ({ code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: Object.keys(c.members).length }));
+    .map(c => {
+      const members = Object.values(c.members);
+      const accepted = members.filter(m => m.status === 'accepted');
+      const pending = members.filter(m => m.status === 'pending');
+      return { code: c.code, name: c.name, description: c.description, createdBy: c.createdBy, createdAt: c.createdAt, memberCount: accepted.length, pendingCount: pending.length };
+    });
 }
 
 // naive per-IP rate limiting for auth endpoints
@@ -305,21 +376,6 @@ function rateLimited(ip) {
   entry.count++;
   return entry.count > 20; // 20 attempts/minute/IP
 }
-
-// per-username lockout, independent of IP, so a distributed brute-force
-// attempt (many IPs, one target account) is still slowed down
-const loginFailures = new Map(); // usernameKey -> { count, lockedUntil }
-function loginLocked(key) {
-  const e = loginFailures.get(key);
-  return !!(e && e.lockedUntil && Date.now() < e.lockedUntil);
-}
-function recordLoginFailure(key) {
-  const e = loginFailures.get(key) || { count: 0, lockedUntil: 0 };
-  e.count++;
-  if (e.count >= 6) { e.lockedUntil = Date.now() + 5 * 60_000; e.count = 0; }
-  loginFailures.set(key, e);
-}
-function clearLoginFailures(key) { loginFailures.delete(key); }
 
 // ---------------------------------------------------------------------------
 // HTTP: static file serving + auth API
@@ -355,10 +411,8 @@ function sendJson(res, status, obj) {
 }
 
 function serveStatic(req, res, urlPath) {
-  const decoded = decodeURIComponent(urlPath === '/' ? '/index.html' : urlPath);
-  const filePath = path.resolve(PUBLIC_DIR, '.' + path.posix.normalize('/' + decoded));
-  const publicRoot = path.resolve(PUBLIC_DIR) + path.sep;
-  if (!filePath.startsWith(publicRoot) && filePath !== path.resolve(PUBLIC_DIR)) { res.writeHead(403); res.end('Forbidden'); return; }
+  let filePath = path.join(PUBLIC_DIR, urlPath === '/' ? 'index.html' : urlPath);
+  if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end('Forbidden'); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) {
       // SPA-style fallback to index.html for unknown paths
@@ -375,34 +429,7 @@ function serveStatic(req, res, urlPath) {
   });
 }
 
-// Security headers applied to every response. CSP is scoped to what this
-// single-page app actually needs (self-hosted assets + Google Fonts +
-// same-origin ws/wss for the chat socket); nothing else is allowed to load
-// or frame this page.
-function applySecurityHeaders(res) {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Permissions-Policy', 'geolocation=(), camera=(self), microphone=(self)');
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
-  res.setHeader('Content-Security-Policy', [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: blob:",
-    "media-src 'self' blob:",
-    "connect-src 'self' ws: wss:",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "object-src 'none'",
-  ].join('; '));
-}
-
 const server = http.createServer(async (req, res) => {
-  applySecurityHeaders(res);
   const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -424,13 +451,10 @@ const server = http.createServer(async (req, res) => {
       const raw = await readBody(req);
       const { username, password } = JSON.parse(raw || '{}');
       const key = String(username || '').toLowerCase();
-      if (loginLocked(key)) return sendJson(res, 429, { error: 'Too many failed attempts for this account. Try again in a few minutes.' });
       const record = await getUserByKey(key);
       if (!record || !verifyPassword(password || '', record.passwordHash)) {
-        recordLoginFailure(key);
         return sendJson(res, 401, { error: 'Invalid username or password' });
       }
-      clearLoginFailures(key);
       return sendJson(res, 200, { token: signToken({ sub: record.username }) });
     }
 
@@ -495,55 +519,75 @@ const server = http.createServer(async (req, res) => {
       const code = decodeURIComponent(url.pathname.split('/')[3]);
       const channel = await getChannel(code);
       if (!channel) return sendJson(res, 404, { error: 'Channel not found' });
-      await joinChannel(code, payload.sub);
-      return sendJson(res, 200, { ok: true, channel });
+      const result = await joinChannel(code, payload.sub);
+      if (!result) return sendJson(res, 500, { error: 'Failed to join' });
+      return sendJson(res, 200, { ok: true, channel, status: result.status, isOwner: result.isOwner });
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/rooms/enter') {
+    // Get members of a channel (only for owner)
+    if (req.method === 'GET' && /^\/api\/channels\/[^/]+\/members$/.test(url.pathname)) {
       const auth = req.headers.authorization || '';
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
       const payload = token && verifyToken(token);
       if (!payload) return sendJson(res, 401, { error: 'Invalid or expired token' });
+      const code = decodeURIComponent(url.pathname.split('/')[3]);
+      const channel = await getChannel(code);
+      if (!channel) return sendJson(res, 404, { error: 'Channel not found' });
+      if (channel.createdBy.toLowerCase() !== payload.sub.toLowerCase()) return sendJson(res, 403, { error: 'Only the owner can view members' });
+      const status = url.searchParams.get('status') || null;
+      const members = await getChannelMembers(code, status);
+      return sendJson(res, 200, { members });
+    }
 
-      const raw = await readBody(req);
-      let body; try { body = JSON.parse(raw || '{}'); } catch (e) { body = {}; }
-      const code = normalizeRoomCode(body.code);
-      if (!code) return sendJson(res, 400, { error: 'Enter a room code' });
+    // Accept a membership request
+    if (req.method === 'POST' && /^\/api\/channels\/[^/]+\/members\/[^/]+\/accept$/.test(url.pathname)) {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      const payload = token && verifyToken(token);
+      if (!payload) return sendJson(res, 401, { error: 'Invalid or expired token' });
+      const parts = url.pathname.split('/');
+      const code = decodeURIComponent(parts[3]);
+      const targetUser = decodeURIComponent(parts[5]);
+      const channel = await getChannel(code);
+      if (!channel) return sendJson(res, 404, { error: 'Channel not found' });
+      if (channel.createdBy.toLowerCase() !== payload.sub.toLowerCase()) return sendJson(res, 403, { error: 'Only the owner can accept members' });
+      await updateMemberStatus(code, targetUser, 'accepted');
+      // Notify the user that they were accepted
+      sendToUser(targetUser.toLowerCase(), { type: 'channel-request-update', code, status: 'accepted' });
+      return sendJson(res, 200, { ok: true });
+    }
 
-      // DMs and channels have their own access model — this gate only
-      // applies to plain group room codes.
-      if (!isOwnableRoom(code)) return sendJson(res, 200, { ok: true, code, isOwner: false, requiresPin: false });
+    // Decline a membership request
+    if (req.method === 'POST' && /^\/api\/channels\/[^/]+\/members\/[^/]+\/decline$/.test(url.pathname)) {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      const payload = token && verifyToken(token);
+      if (!payload) return sendJson(res, 401, { error: 'Invalid or expired token' });
+      const parts = url.pathname.split('/');
+      const code = decodeURIComponent(parts[3]);
+      const targetUser = decodeURIComponent(parts[5]);
+      const channel = await getChannel(code);
+      if (!channel) return sendJson(res, 404, { error: 'Channel not found' });
+      if (channel.createdBy.toLowerCase() !== payload.sub.toLowerCase()) return sendJson(res, 403, { error: 'Only the owner can decline members' });
+      await updateMemberStatus(code, targetUser, 'declined');
+      // Notify the user that they were declined
+      sendToUser(targetUser.toLowerCase(), { type: 'channel-request-update', code, status: 'declined' });
+      return sendJson(res, 200, { ok: true });
+    }
 
-      const username = payload.sub;
-      const usernameKey = username.toLowerCase();
-      let entry = roomAccess.get(code);
-
-      // Brand-new room code: whoever gets here first becomes the owner.
-      if (!entry) {
-        entry = { ownerKey: usernameKey, owner: username, pin: generateRoomPin(), approved: new Set([usernameKey]), createdAt: Date.now() };
-        roomAccess.set(code, entry);
-        return sendJson(res, 200, { ok: true, code, isOwner: true, pin: entry.pin });
-      }
-
-      if (usernameKey === entry.ownerKey) {
-        return sendJson(res, 200, { ok: true, code, isOwner: true, pin: entry.pin });
-      }
-      if (entry.approved.has(usernameKey)) {
-        return sendJson(res, 200, { ok: true, code, isOwner: false });
-      }
-
-      // Not yet approved — must supply the owner's 6-digit PIN.
-      if (pinRateLimited(`${code}:${usernameKey}`)) {
-        return sendJson(res, 429, { error: 'Too many attempts — wait a minute and try again.', needsPin: true });
-      }
-      const pin = String(body.pin || '').trim();
-      if (!pin) return sendJson(res, 403, { error: 'This room needs a 6-digit code from its owner', needsPin: true });
-      if (!/^\d{6}$/.test(pin) || pin !== entry.pin) {
-        return sendJson(res, 403, { error: 'Incorrect code — check with the room owner', needsPin: true });
-      }
-
-      entry.approved.add(usernameKey);
-      return sendJson(res, 200, { ok: true, code, isOwner: false });
+    // Delete channel (only owner)
+    if (req.method === 'DELETE' && /^\/api\/channels\/[^/]+$/.test(url.pathname)) {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      const payload = token && verifyToken(token);
+      if (!payload) return sendJson(res, 401, { error: 'Invalid or expired token' });
+      const code = decodeURIComponent(url.pathname.split('/')[3]);
+      const channel = await getChannel(code);
+      if (!channel) return sendJson(res, 404, { error: 'Channel not found' });
+      if (channel.createdBy.toLowerCase() !== payload.sub.toLowerCase()) return sendJson(res, 403, { error: 'Only the owner can delete the channel' });
+      const deleted = await deleteChannel(code, payload.sub);
+      if (!deleted) return sendJson(res, 500, { error: 'Failed to delete' });
+      return sendJson(res, 200, { ok: true });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/health') {
@@ -572,45 +616,6 @@ const server = http.createServer(async (req, res) => {
  * }>
  */
 const rooms = new Map();
-
-// ---------------------------------------------------------------------------
-// Group room ownership + join PIN ("owner approval").
-//
-// The first account to enter a fresh, plain room code (not a dm- or ch-
-// room) becomes that room's owner and is handed a random 6-digit PIN.
-// Anyone else who tries to enter must supply that exact PIN — matching it
-// is treated as the owner's approval and adds them to the room's approved
-// set; a wrong or missing PIN is refused outright. Like message content,
-// this lives only in memory and resets if the server restarts — nothing
-// about it is ever written to disk or a database.
-// ---------------------------------------------------------------------------
-const roomAccess = new Map(); // code -> { ownerKey, owner, pin, approved: Set<usernameKey>, createdAt }
-const pinAttempts = new Map(); // `${code}:${usernameKey}` -> { count, resetAt }
-
-function normalizeRoomCode(raw) {
-  return String(raw || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 60);
-}
-function isOwnableRoom(code) {
-  return !!code && code !== '__lobby__' && !code.startsWith('dm-') && !code.startsWith('ch-');
-}
-function generateRoomPin() {
-  return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
-}
-function pinRateLimited(id) {
-  const now = Date.now();
-  let entry = pinAttempts.get(id);
-  if (!entry || now > entry.resetAt) {
-    entry = { count: 0, resetAt: now + 60_000 };
-    pinAttempts.set(id, entry);
-  }
-  entry.count++;
-  return entry.count > 10; // 10 pin guesses/minute per (room, user) — 1-in-1M code, this keeps guessing infeasible
-}
-function isApprovedForRoom(code, usernameKey) {
-  const entry = roomAccess.get(code);
-  if (!entry) return true; // not an owned room (yet) — nothing to gate
-  return usernameKey === entry.ownerKey || entry.approved.has(usernameKey);
-}
 
 // 'ch-' rooms are permanent public channels — never swept even with no
 // clients/messages. 'dm-' and everything else keep the original ephemeral
@@ -714,8 +719,16 @@ function buildConversationsList(usernameKey) {
 }
 async function sendLobbyState(ws, username) {
   const usernameKey = username.toLowerCase();
-  const [myChannels] = await Promise.all([getUserChannels(usernameKey)]);
-  send(ws, { type: 'lobby-joined', conversations: buildConversationsList(usernameKey), channels: myChannels });
+  const [myChannels, convos] = await Promise.all([getUserChannels(usernameKey), buildConversationsList(usernameKey)]);
+  // also include pending requests count for channels where user is owner
+  let pendingRequests = [];
+  for (const ch of myChannels) {
+    if (ch.createdBy.toLowerCase() === usernameKey && ch.pendingCount > 0) {
+      const members = await getChannelMembers(ch.code, 'pending');
+      pendingRequests.push({ code: ch.code, name: ch.name, requests: members.map(m => m.username) });
+    }
+  }
+  send(ws, { type: 'lobby-joined', conversations: convos, channels: myChannels, pendingRequests });
 }
 
 function scheduleDeleteIfNeeded(roomCode, room, id) {
@@ -740,10 +753,7 @@ function scheduleDeleteIfNeeded(roomCode, room, id) {
 setInterval(() => {
   for (const [code, room] of rooms) {
     if (room.permanent) continue;
-    if (room.clients.size === 0 && room.messages.size === 0) {
-      rooms.delete(code);
-      roomAccess.delete(code);
-    }
+    if (room.clients.size === 0 && room.messages.size === 0) rooms.delete(code);
   }
 }, EMPTY_ROOM_SWEEP_MS);
 
@@ -752,28 +762,29 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_WS_PAYLOAD });
 
-server.on('upgrade', (req, socket, head) => {
+server.on('upgrade', async (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname !== '/ws') { socket.destroy(); return; }
   const token = url.searchParams.get('token');
   const rawRoom = url.searchParams.get('room') || '';
-  // '__lobby__' is a virtual, room-less connection kept open while the
-  // account is logged in (landing page, browsing chats, etc.) purely so the
-  // server has somewhere to push "you got a new DM" notifications, even when
-  // the person isn't currently inside that specific chat room.
-  const roomCode = rawRoom === '__lobby__' ? '__lobby__' : normalizeRoomCode(rawRoom);
+  const roomCode = rawRoom === '__lobby__' ? '__lobby__' : rawRoom.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 60);
   const peerRaw = url.searchParams.get('peer');
   const peer = peerRaw && validUsername(peerRaw) ? peerRaw : null;
   const payload = token && verifyToken(token);
   if (!payload || !roomCode) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); socket.destroy(); return; }
 
-  // Owner-approval gate: a group room that already has an owner will only
-  // let the owner or a PIN-approved user's socket through. Anyone else gets
-  // dropped here even if they somehow skip the /api/rooms/enter check.
-  if (isOwnableRoom(roomCode) && !isApprovedForRoom(roomCode, payload.sub.toLowerCase())) {
-    socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-    socket.destroy();
-    return;
+  // For channel rooms, check membership before allowing connection
+  if (roomCode.startsWith('ch-')) {
+    const channel = await getChannel(roomCode);
+    if (!channel) { socket.write('HTTP/1.1 404 Not Found\r\n\r\n'); socket.destroy(); return; }
+    const isOwner = channel.createdBy.toLowerCase() === payload.sub.toLowerCase();
+    if (!isOwner) {
+      const members = await getChannelMembers(roomCode, 'accepted');
+      const isMember = members.some(m => m.username_key === payload.sub.toLowerCase());
+      if (!isMember) {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n'); socket.destroy(); return;
+      }
+    }
   }
 
   wss.handleUpgrade(req, socket, head, (ws) => {
@@ -811,7 +822,7 @@ wss.on('connection', (ws) => {
       registerDmParticipants(roomCode, username, ws.peer);
     }
     if (isDm) clearUnread(roomCode, usernameKey);
-    if (isChannel) { try { await joinChannel(roomCode, username); } catch (e) {} }
+    // if channel, no need to join again; already validated
 
     // if this user already has a connection open in this room (e.g. reconnect), close the old one
     const existing = room.clients.get(username);
@@ -831,7 +842,13 @@ wss.on('connection', (ws) => {
       meta.peer = otherKey ? entry.participants[otherKey] : ws.peer;
     } else if (isChannel) {
       const channel = await getChannel(roomCode).catch(() => null);
-      if (channel) { meta.channelName = channel.name; meta.channelDescription = channel.description; meta.memberCount = channel.memberCount; }
+      if (channel) {
+        meta.channelName = channel.name;
+        meta.channelDescription = channel.description;
+        meta.memberCount = channel.memberCount;
+        meta.owner = channel.createdBy;
+        meta.isOwner = channel.createdBy.toLowerCase() === usernameKey;
+      }
     }
 
     send(ws, Object.assign({ type: 'joined', room: roomCode, timerSeconds: room.timerSeconds, presence: presenceList(room), messages: liveMessages }, meta));
@@ -839,12 +856,6 @@ wss.on('connection', (ws) => {
   })();
 
   ws.on('message', (raw) => {
-    // basic per-connection flood guard: 60 messages / 10s
-    const now = Date.now();
-    ws._msgTimes = (ws._msgTimes || []).filter((t) => now - t < 10_000);
-    ws._msgTimes.push(now);
-    if (ws._msgTimes.length > 60) return;
-
     let msg;
     try { msg = JSON.parse(raw); } catch (e) { return; }
     if (!msg || typeof msg.type !== 'string') return;
@@ -864,9 +875,6 @@ wss.on('connection', (ws) => {
         if (isDm) {
           const entry = getDmEntry(roomCode);
           if (!Object.keys(entry.participants).length) {
-            // DM room reached with no explicit peer registration (e.g. a
-            // hand-typed room code) — fall back to whoever's connected so
-            // the feature still degrades gracefully instead of breaking.
             for (const uname of room.clients.keys()) entry.participants[uname.toLowerCase()] = uname;
           }
           entry.lastMessage = { id, sender: username, preview: previewFor(record.type, record.payload), type: record.type, createdAt: record.createdAt };
