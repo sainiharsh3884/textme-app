@@ -800,6 +800,7 @@
       case 'channel-request-update':
         if(data.status === 'accepted') showToast(`You were accepted into channel "${data.code}"`);
         else if(data.status === 'declined') showToast(`Your request to join "${data.code}" was declined`);
+        refreshMyChannels();
         loadRooms();
         break;
       default: break;
@@ -899,6 +900,7 @@
       const data = await res.json();
       if(!res.ok){ showToast(data.error || 'Could not join'); return; }
       showToast('Join request sent, waiting for owner approval.');
+      await refreshMyChannels();
       loadRooms();
     }catch(e){ showToast('Error joining channel'); }
   }
@@ -960,11 +962,24 @@
       if(!res.ok){ showToast(data.error || 'Could not create'); return; }
       $('channel-name-input').value = '';
       showToast(`Channel "${data.channel.name}" created!`);
+      await refreshMyChannels();
       loadRooms();
-      // also open it?
       openChat(data.channel.code);
     }catch(e){ showToast('Error creating channel'); }
   });
+
+  // Refetch just the current user's channels (owned + joined) so the owner
+  // badge and Manage modal reflect reality right away, instead of waiting
+  // for the lobby WebSocket to reconnect and re-send lobby-joined.
+  async function refreshMyChannels(){
+    try{
+      const res = await fetch('/api/channels/mine', { headers: { 'Authorization': `Bearer ${token}` } });
+      if(!res.ok) return;
+      const data = await res.json();
+      myChannels = data.channels || [];
+      renderMyChannels();
+    }catch(e){}
+  }
 
   // User search
   let searchDebounce;
