@@ -521,6 +521,18 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { channels: list });
     }
 
+    // Just the current user's own channels (owned + joined) — used to refresh
+    // the client's "myChannels" list right after creating/joining a channel,
+    // without waiting for the lobby WebSocket to reconnect.
+    if (req.method === 'GET' && url.pathname === '/api/channels/mine') {
+      const auth = req.headers.authorization || '';
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+      const payload = token && verifyToken(token);
+      if (!payload) return sendJson(res, 401, { error: 'Invalid or expired token' });
+      const list = await getUserChannels(payload.sub.toLowerCase());
+      return sendJson(res, 200, { channels: list });
+    }
+
     if (req.method === 'POST' && /^\/api\/channels\/[^/]+\/join$/.test(url.pathname)) {
       const auth = req.headers.authorization || '';
       const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
