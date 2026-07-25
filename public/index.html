@@ -7,21 +7,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    /* reset & base */
+    /* --- Modern, elegant dark theme with warm accents --- */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; overflow: hidden; }
     body {
-      background: #120f0c;
-      color: #ede8de;
+      background: #1a1714;
+      color: #ece3d9;
       font-family: 'Inter', sans-serif;
       -webkit-font-smoothing: antialiased;
       touch-action: manipulation;
     }
     #app {
       position: relative;
-      /* --app-vh is set from JS (window.innerHeight) so the composer never
-         hides behind a mobile browser's address bar / nav bar. Falls back
-         to dvh, then plain vh, for browsers where JS hasn't run yet. */
       height: 100vh;
       height: calc(var(--app-vh, 1vh) * 100);
       height: 100dvh;
@@ -31,31 +28,32 @@
       max-width: 100vw;
     }
     :root {
-      --bg: #120f0c;
-      --bg-elevated: #1c1712;
-      --bg-input: #221b14;
-      --accent: #e8562a;
-      --accent-soft: rgba(232,86,42,0.16);
-      --accent-dim: rgba(232,86,42,0.55);
-      --text: #ede8de;
-      --text-dim: #948c7c;
-      --text-faint: #5c564a;
-      --border: #2a241d;
-      --bubble-me: #2a2019;
-      --bubble-them: #1c1712;
-      --online: #6fa87a;
-      --radius: 14px;
+      --bg: #1a1714;
+      --bg-elevated: #28221e;
+      --bg-input: #2f2823;
+      --accent: #e17a3b;
+      --accent-soft: rgba(225,122,59,0.16);
+      --accent-dim: rgba(225,122,59,0.55);
+      --text: #ece3d9;
+      --text-dim: #b8aa9a;
+      --text-faint: #7a6f63;
+      --border: #3a322c;
+      --bubble-me: #2f2823;
+      --bubble-them: #1f1b17;
+      --online: #7cb083;
+      --radius: 12px;
     }
     .mono { font-family: 'JetBrains Mono', monospace; }
     .wordmark { font-family: 'Archivo Black', sans-serif; letter-spacing: 0.5px; }
     ::selection { background: var(--accent-soft); }
-    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
 
-    button { font-family: 'Inter', sans-serif; cursor: pointer; border: none; background: none; }
+    button { font-family: 'Inter', sans-serif; cursor: pointer; border: none; background: none; color: inherit; }
     input, select, textarea { font-family: 'Inter', sans-serif; }
+    button:active { transform: scale(0.97); }
 
-    /* WELCOME / SPLASH */
+    /* Welcome splash */
     #welcome {
       height: 100%;
       position: relative;
@@ -63,328 +61,254 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      background: #060504;
+      background: #0d0b09;
     }
-    #welcome .welcome-bg {
+    .welcome-bg {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
       object-fit: cover;
-      opacity: 0.55;
+      opacity: 0.3;
     }
-    #welcome .welcome-overlay {
+    .welcome-overlay {
       position: absolute; inset: 0;
-      background: radial-gradient(ellipse 900px 600px at 50% 20%, rgba(232,86,42,0.14), transparent 65%),
-                  linear-gradient(180deg, rgba(6,5,4,0.35) 0%, rgba(6,5,4,0.75) 55%, rgba(6,5,4,0.96) 100%);
+      background: radial-gradient(ellipse 900px 600px at 50% 20%, rgba(225,122,59,0.12), transparent 65%),
+                  linear-gradient(180deg, rgba(13,11,9,0.4) 0%, rgba(13,11,9,0.8) 55%, rgba(13,11,9,0.96) 100%);
     }
     .welcome-content {
-      position: relative;
-      z-index: 1;
-      text-align: center;
-      padding: 24px;
-      max-width: 420px;
-    }
-    .welcome-content .flame-mark { margin: 0 auto 22px; }
-    .welcome-title {
-      font-size: 42px;
-      line-height: 1.05;
-      margin: 0 0 10px;
-      text-shadow: 0 4px 30px rgba(0,0,0,0.6);
-    }
-    .welcome-title .accent-word { color: var(--accent); }
-    .welcome-sub {
-      color: var(--text-dim);
-      font-size: 15px;
-      line-height: 1.6;
-      margin: 0 0 30px;
-    }
-    .btn-primary.welcome-cta { max-width: 280px; margin: 0 auto; display: block; }
-    .welcome-footnote { margin-top: 16px; font-size: 12px; color: var(--text-faint); }
-
-    /* LANDING */
-    #landing {
-      height: 100%;
-      width: 100%;
-      display: flex;
-      align-items: stretch;
-      justify-content: center;
-      background: var(--bg);
-      overflow-y: auto;
-      position: relative;
-    }
-    /* fixed to the viewport (not the scrolling card) so it always covers
-       the whole screen edge-to-edge on phones, tablets, and desktops,
-       regardless of how tall the login/room card content gets */
-    .landing-bg {
-      position: fixed; inset: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-      opacity: 0.4;
-      z-index: 0;
-    }
-    .landing-bg-overlay {
-      position: fixed; inset: 0;
-      z-index: 0;
-      background: radial-gradient(ellipse 800px 500px at 50% -10%, rgba(232,86,42,0.14), transparent 60%),
-                  linear-gradient(180deg, rgba(6,5,4,0.55) 0%, rgba(6,5,4,0.88) 55%, rgba(6,5,4,0.97) 100%);
-    }
-    /* On phones/tablets this is the only pane: a single scrolling column
-       that fills the screen edge-to-edge. On wide screens it becomes the
-       right-hand pane next to .landing-brand (see min-width:1100px below),
-       so the whole viewport gets used instead of one small floating box. */
-    .landing-main {
-      position: relative;
-      z-index: 1;
-      flex: 1 1 640px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 32px 16px;
-      min-height: 100%;
-    }
-    .landing-card {
-      width: 100%;
-      max-width: 440px;
-      padding: 0 4px;
-    }
-    /* Decorative brand pane — hidden on phones/tablets, shown alongside the
-       form on wide screens so the login/signup screen uses the full width
-       of the display instead of a small centered card. */
-    .landing-brand {
-      display: none;
-      position: relative;
-      z-index: 1;
-      flex: 1 1 640px;
-      align-items: center;
-      justify-content: center;
-      padding: 48px;
-      border-right: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(232,86,42,0.06), transparent 60%);
-    }
-    .landing-brand-inner { max-width: 460px; }
-    .landing-brand .flame-mark { width: 60px; height: 60px; border-radius: 14px; }
-    .landing-brand .flame-mark svg { width: 30px; height: 30px; }
-    .landing-brand-title { font-size: 56px; line-height: 1.02; margin: 24px 0 14px; }
-    .landing-brand-sub { color: var(--text-dim); font-size: 16.5px; line-height: 1.65; max-width: 420px; }
-    .landing-brand-list { margin-top: 34px; display: flex; flex-direction: column; gap: 16px; }
-    .landing-brand-item { display: flex; align-items: center; gap: 12px; font-size: 14.5px; color: var(--text-dim); }
-    .landing-brand-item .dot-mark { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
-    @media (min-width: 1100px) {
-      .landing-brand { display: flex; }
-      .landing-main { padding: 32px 48px; }
+      position: relative; z-index: 1;
+      text-align: center; padding: 24px; max-width: 420px;
     }
     .flame-mark {
-      width: 44px; height: 44px; margin-bottom: 22px;
+      width: 48px; height: 48px; margin: 0 auto 20px;
       display: flex; align-items: center; justify-content: center;
-      border-radius: 10px; background: var(--accent-soft);
+      border-radius: 12px; background: var(--accent-soft);
       border: 1px solid var(--accent-dim);
     }
-    .flame-mark svg { width: 22px; height: 22px; }
-    .landing-title { font-size: 34px; line-height: 1.05; margin: 0 0 8px; }
-    .landing-sub { color: var(--text-dim); font-size: 14.5px; line-height: 1.55; margin: 0 0 26px; max-width: 360px; }
-    .field { margin-bottom: 14px; }
-    .field label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 7px; }
-    .field input {
-      width: 100%; padding: 13px 14px; background: var(--bg-input);
-      border: 1px solid var(--border); border-radius: 10px;
-      color: var(--text); font-size: 15px; outline: none;
-      transition: border-color .15s;
-    }
-    .field input:focus { border-color: var(--accent-dim); }
+    .flame-mark svg { width: 24px; height: 24px; }
+    .welcome-title { font-size: 40px; line-height: 1.05; margin: 0 0 8px; text-shadow: 0 4px 30px rgba(0,0,0,0.5); }
+    .welcome-title .accent-word { color: var(--accent); }
+    .welcome-sub { color: var(--text-dim); font-size: 15px; line-height: 1.6; margin: 0 0 30px; }
     .btn-primary {
       width: 100%; padding: 13px; background: var(--accent);
-      color: #181310; font-weight: 600; font-size: 15px;
+      color: #1a1714; font-weight: 600; font-size: 15px;
       border-radius: 10px; transition: filter .15s, transform .1s;
-      margin-top: 6px;
     }
     .btn-primary:hover { filter: brightness(1.08); }
-    .btn-primary:active { transform: scale(0.98); }
-    .btn-ghost {
+    .btn-secondary {
       background: transparent; border: 1px solid var(--border);
       color: var(--text-dim); padding: 9px 14px; border-radius: 9px;
       font-size: 13px; font-weight: 500;
     }
-    .btn-ghost:hover { border-color: var(--accent-dim); color: var(--text); }
-    .tabs {
-      display: flex; gap: 6px; margin-bottom: 22px;
-      background: var(--bg-input); padding: 4px; border-radius: 10px;
-    }
-    .tab {
-      flex: 1; text-align: center; padding: 9px; border-radius: 7px;
-      font-size: 13.5px; font-weight: 600; color: var(--text-dim);
-      background: transparent;
-    }
-    .tab.active { background: var(--accent); color: #181310; }
-    .error-text { color: var(--accent); font-size: 13px; margin-top: 10px; display: none; }
-    .landing-note {
-      margin-top: 22px; padding: 13px 14px; background: var(--bg-elevated);
-      border: 1px solid var(--border); border-radius: 10px;
-      font-size: 12.5px; color: var(--text-dim); line-height: 1.6;
-    }
-    .landing-note b { color: var(--text); }
-    .logged-in-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 20px; font-size: 13px; color: var(--text-dim);
-      flex-wrap: wrap; gap: 6px;
-    }
-    .logged-in-bar b { color: var(--text); }
-    .link-btn { background: none; color: var(--text-dim); text-decoration: underline; font-size: 12.5px; }
+    .btn-secondary:hover { border-color: var(--accent-dim); color: var(--text); }
+    .welcome-footnote { margin-top: 16px; font-size: 12px; color: var(--text-faint); }
 
-    /* recent rooms quick-entry */
-    #recent-rooms-block { margin-top: 22px; }
-    .recent-rooms-label {
-      font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
-      color: var(--text-faint); margin-bottom: 9px;
-    }
-    .recent-rooms-list { display: flex; flex-direction: column; gap: 7px; }
-    .recent-room-item {
-      width: 100%;
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      background: var(--bg-elevated); border: 1px solid var(--border);
-      border-radius: 10px; padding: 10px 12px;
-      text-align: left; transition: border-color .15s, background .15s;
-    }
-    .recent-room-item:hover { border-color: var(--accent-dim); background: var(--bg-input); }
-    .recent-room-name { font-size: 13.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .recent-room-time { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
-    .recent-room-remove {
-      flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--text-faint);
-    }
-    .recent-room-remove:hover { color: var(--accent); background: var(--accent-soft); }
-    .recent-room-remove svg { width: 12px; height: 12px; }
-
-    /* FIND A USER / SEARCH */
-    #search-users-block { margin-top: 22px; }
-    .search-divider {
-      display: flex; align-items: center; gap: 10px;
-      margin: 22px 0 16px; color: var(--text-faint); font-size: 11px;
-      text-transform: uppercase; letter-spacing: 0.08em;
-    }
-    .search-divider::before, .search-divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
-    }
-    .search-row { display: flex; gap: 8px; }
-    .search-row input { flex: 1; }
-    .search-row .btn-ghost { flex-shrink: 0; padding: 0 16px; }
-    .search-results { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; }
-    .search-result-item {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--bg-elevated); border: 1px solid var(--border);
-      border-radius: 10px; padding: 9px 10px;
-    }
-    .search-result-avatar {
-      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-      background: var(--accent-soft); color: var(--accent);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700;
-    }
-    .search-result-name {
-      flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .search-result-msg-btn {
-      flex-shrink: 0; background: var(--accent-soft); color: var(--accent);
-      border: 1px solid var(--accent-dim); padding: 7px 12px;
-      border-radius: 8px; font-size: 12px; font-weight: 600;
-    }
-    .search-result-msg-btn:hover { background: var(--accent); color: #181310; }
-    .search-status { font-size: 12.5px; color: var(--text-faint); margin-top: 10px; text-align: center; }
-
-    /* CHATS (conversation list) & CHANNELS */
-    .chat-item { cursor: pointer; transition: border-color .15s, background .15s; }
-    .chat-item:hover { border-color: var(--accent-dim); background: var(--bg-input); }
-    .chat-item-text { flex: 1; min-width: 0; }
-    .chat-item-name { font-size: 13.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .chat-item-preview { font-size: 12px; color: var(--text-faint); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .chat-unread-badge {
-      flex-shrink: 0; background: var(--accent); color: #181310;
-      border-radius: 999px; font-size: 11px; font-weight: 700;
-      padding: 2px 7px; min-width: 18px; text-align: center;
-    }
-    #channels-block { margin-top: 22px; }
-    .channel-avatar { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
-
-    /* CHAT LAYOUT — fully responsive */
-    #chat {
+    /* Main layout after login */
+    #main {
       display: none;
       height: 100%;
       flex-direction: column;
-      overflow: hidden;
-      position: relative;
-      width: 100%;
+      background: var(--bg);
     }
+    #main.active { display: flex; }
 
-    /* header */
-    header {
+    /* Top bar */
+    #top-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 12px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--border);
       background: var(--bg-elevated);
       flex-shrink: 0;
       flex-wrap: wrap;
       gap: 6px;
-      min-height: 56px;
     }
-    .hdr-left {
+    #top-bar .brand { font-size: 20px; font-weight: 700; color: var(--accent); }
+    #top-bar .user-info { font-size: 13px; color: var(--text-dim); display: flex; align-items: center; gap: 10px; }
+    #top-bar .user-info button { font-size: 12px; color: var(--text-faint); text-decoration: underline; }
+
+    /* Navigation tabs */
+    #nav-tabs {
+      display: flex;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #nav-tabs .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-dim);
+      background: transparent;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    #nav-tabs .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    #nav-tabs .tab:hover { color: var(--text); }
+
+    /* Main content panels */
+    .panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .panel.active { display: flex; }
+
+    /* Inbox panel (Chats) */
+    .search-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .search-row input {
+      flex: 1;
+      padding: 10px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+    .search-row input:focus { border-color: var(--accent-dim); }
+    .search-row button { flex-shrink: 0; padding: 0 16px; }
+
+    .chat-item, .channel-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: border-color .15s, background .15s;
+      cursor: pointer;
+    }
+    .chat-item:hover, .channel-item:hover {
+      border-color: var(--accent-dim);
+      background: var(--bg-input);
+    }
+    .avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .chat-info, .channel-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .chat-name, .channel-name {
+      font-weight: 600;
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .chat-preview, .channel-meta {
+      font-size: 12px;
+      color: var(--text-faint);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .badge {
+      background: var(--accent);
+      color: #1a1714;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      min-width: 18px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .channel-owner-badge {
+      font-size: 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: 6px;
+    }
+    .channel-action {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+    }
+    .channel-action:hover { background: var(--accent); color: #1a1714; }
+    .channel-action.pending { background: var(--bg-input); color: var(--text-dim); border-color: var(--border); }
+    .channel-action.manage { background: var(--bg-input); color: var(--text); border-color: var(--border); }
+    .channel-action.manage:hover { border-color: var(--accent-dim); }
+
+    .list-empty {
+      text-align: center;
+      color: var(--text-faint);
+      font-size: 13px;
+      padding: 30px 0;
+    }
+
+    /* Chat view (room) */
+    #chat-view {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+    #chat-view.active { display: flex; }
+
+    #chat-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      min-width: 0;
-      flex: 1 1 120px;
-    }
-    .room-badge {
-      width: 34px; height: 34px; border-radius: 9px;
-      background: var(--accent-soft); border: 1px solid var(--accent-dim);
-      display: flex; align-items: center; justify-content: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-elevated);
       flex-shrink: 0;
+      min-height: 54px;
     }
-    .room-badge svg { width: 17px; height: 17px; }
-    .hdr-meta { min-width: 0; }
-    .hdr-room { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hdr-presence { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; }
-    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--online); flex-shrink: 0; }
-    .dot.offline { background: var(--text-faint); }
-    .hdr-right {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      flex: 1 1 auto;
+    #chat-back {
+      background: none; font-size: 22px; color: var(--text-dim);
+      padding: 0 4px; line-height: 1;
     }
-    .icon-btn {
-      width: 34px; height: 34px; border-radius: 9px;
-      background: transparent; display: flex; align-items: center; justify-content: center;
-      color: var(--text-dim); transition: background .15s, color .15s;
-      flex-shrink: 0;
-    }
-    .icon-btn:hover { background: var(--bg-input); color: var(--text); }
-    .icon-btn svg { width: 18px; height: 18px; }
-    #timer-select {
-      background: var(--bg-input); border: 1px solid var(--border);
-      color: var(--text); padding: 5px 8px; border-radius: 8px;
-      font-size: 11px; outline: none; max-width: 110px;
-    }
-
-    #ss-banner {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 12px; background: var(--accent-soft);
-      border-bottom: 1px solid var(--accent-dim);
-      font-size: 12px; color: var(--text);
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-    #ss-banner svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--accent); }
-    #ss-banner button {
+    #chat-back:hover { color: var(--text); }
+    .chat-room-name { font-weight: 600; font-size: 16px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chat-room-meta { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .chat-room-meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--online); }
+    .chat-room-meta .dot.offline { background: var(--text-faint); }
+    .chat-actions { display: flex; gap: 4px; }
+    .chat-actions button {
+      width: 32px; height: 32px; border-radius: 8px;
       background: transparent; color: var(--text-dim);
-      font-size: 11px; margin-left: auto; text-decoration: underline;
-      white-space: nowrap;
+      display: flex; align-items: center; justify-content: center;
     }
+    .chat-actions button:hover { background: var(--bg-input); color: var(--text); }
+    .chat-actions button svg { width: 18px; height: 18px; }
 
-    /* message scroll area */
+    /* Messages */
     #msg-scroll {
       flex: 1;
       overflow-y: auto;
@@ -392,19 +316,8 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
-      position: relative;
-      transition: filter .25s;
       min-height: 0;
-      -webkit-overflow-scrolling: touch;
     }
-    #msg-scroll.blurred { filter: blur(22px); }
-    .empty-state {
-      margin: auto; text-align: center; color: var(--text-faint);
-      font-size: 13px; max-width: 260px; line-height: 1.6;
-      padding: 20px 0;
-    }
-    .empty-state svg { width: 30px; height: 30px; color: var(--text-faint); margin-bottom: 10px; }
-
     .msg-row {
       display: flex;
       flex-direction: column;
@@ -424,77 +337,16 @@
       overflow: hidden;
       width: 100%;
     }
-    .msg-row.me .bubble {
-      background: var(--bubble-me);
-      border: 1px solid #3a2c1f;
-      border-bottom-right-radius: 4px;
-    }
-    .msg-row.them .bubble {
-      background: var(--bubble-them);
-      border: 1px solid var(--border);
-      border-bottom-left-radius: 4px;
-    }
-    .bubble img {
-      max-width: 100%;
-      max-height: 260px;
-      width: auto;
-      height: auto;
-      border-radius: 8px;
-      display: block;
-      margin-top: 2px;
-      object-fit: cover;
-      cursor: zoom-in;
-    }
-    /* fullscreen tap-to-view lightbox for images */
-    #img-lightbox {
-      position: fixed; inset: 0; z-index: 60;
-      background: rgba(6,4,3,0.94);
-      display: none;
-      align-items: center; justify-content: center;
-      padding: 24px;
-      backdrop-filter: blur(4px);
-    }
-    #img-lightbox.show { display: flex; }
-    #img-lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; object-fit: contain; }
-    #img-lightbox-close {
-      position: absolute; top: 16px; right: 16px;
-      width: 38px; height: 38px; border-radius: 50%;
-      background: var(--bg-elevated); border: 1px solid var(--border);
-      color: var(--text); display: flex; align-items: center; justify-content: center;
-    }
-    #img-lightbox-close svg { width: 18px; height: 18px; }
-    .bubble a { color: var(--accent); text-decoration: underline; }
-    .file-chip {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--bg-input); padding: 6px 10px; border-radius: 8px; margin-top: 2px;
-    }
-    .file-chip svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
-    .file-chip a { color: var(--text); text-decoration: none; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .contact-chip {
-      display: flex; align-items: center; gap: 9px;
-      background: var(--bg-input); padding: 8px 11px; border-radius: 8px; margin-top: 2px;
-    }
-    .contact-avatar {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: var(--accent-soft); color: var(--accent);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 700; flex-shrink: 0;
-    }
-    .contact-name { font-size: 13px; font-weight: 600; }
-    .contact-phone { font-size: 11px; color: var(--text-dim); }
+    .msg-row.me .bubble { background: var(--bubble-me); border: 1px solid #3a322c; border-bottom-right-radius: 4px; }
+    .msg-row.them .bubble { background: var(--bubble-them); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .bubble img { max-width: 100%; max-height: 260px; border-radius: 8px; display: block; margin-top: 2px; cursor: zoom-in; }
     .msg-time { font-size: 10px; color: var(--text-faint); margin-top: 3px; }
     .fuse-wrap { width: 100%; margin-top: 6px; }
     .fuse-track { height: 3px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
-    .fuse-fill { height: 100%; background: linear-gradient(90deg,#ffb347,var(--accent)); border-radius: 3px; transition: width 1s linear; }
-    .fuse-label { font-size: 9px; color: var(--text-faint); margin-top: 2px; letter-spacing: 0.02em; }
-    .msg-row.burning .bubble { animation: burnout 1.1s ease forwards; }
-    @keyframes burnout {
-      0% { opacity: 1; filter: blur(0) brightness(1); transform: scale(1); }
-      60% { filter: blur(2px) brightness(1.6); }
-      100% { opacity: 0; filter: blur(10px) brightness(2); transform: scale(0.92); }
-    }
+    .fuse-fill { height: 100%; background: linear-gradient(90deg, #d68c5c, var(--accent)); border-radius: 3px; transition: width 1s linear; }
+    .fuse-label { font-size: 9px; color: var(--text-faint); margin-top: 2px; }
 
-    /* COMPOSER — fixed at bottom, fully responsive */
+    /* Composer */
     #composer {
       display: flex;
       align-items: flex-end;
@@ -503,9 +355,7 @@
       border-top: 1px solid var(--border);
       background: var(--bg-elevated);
       flex-shrink: 0;
-      flex-wrap: nowrap;
-      min-height: 60px;
-      width: 100%;
+      min-height: 56px;
     }
     #text-input {
       flex: 1;
@@ -520,9 +370,7 @@
       font-size: 15px;
       outline: none;
       line-height: 1.4;
-      width: 0; /* flex overrides */
       min-width: 60px;
-      -webkit-appearance: none;
     }
     #text-input:focus { border-color: var(--accent-dim); }
     .composer-btn {
@@ -536,326 +384,234 @@
       justify-content: center;
       flex-shrink: 0;
       transition: all .15s;
-      min-width: 40px;
     }
     .composer-btn:hover { color: var(--text); border-color: var(--accent-dim); }
     .composer-btn svg { width: 18px; height: 18px; }
-    #send-btn {
-      background: var(--accent);
-      color: #181310;
-    }
+    #send-btn { background: var(--accent); color: #1a1714; }
     #send-btn:hover { filter: brightness(1.08); }
-    #send-btn svg { width: 17px; height: 17px; }
 
-    /* call overlay */
-    #call-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(8,6,4,0.94);
+    /* Manage modal */
+    #manage-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
       display: none;
       align-items: center;
       justify-content: center;
-      flex-direction: column;
-      z-index: 30;
-      backdrop-filter: blur(6px);
+      z-index: 100;
     }
-    .call-avatar {
-      width: 70px; height: 70px; border-radius: 50%;
-      background: var(--accent-soft); border: 1px solid var(--accent-dim);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 28px; font-weight: 700; color: var(--accent);
-      margin-bottom: 14px;
+    #manage-modal.active { display: flex; }
+    .manage-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 480px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     }
-    .call-name { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
-    .call-status { font-size: 13px; color: var(--text-dim); margin-bottom: 28px; }
-    .call-actions { display: flex; gap: 14px; }
-    .call-btn {
-      width: 52px; height: 52px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      transition: transform .1s, filter .15s;
+    .manage-card h2 { font-size: 20px; margin-bottom: 8px; }
+    .manage-card .sub { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; }
+    .manage-card .member-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+    .manage-card .member-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--bg-input); padding: 8px 12px; border-radius: 8px;
     }
-    .call-btn:active { transform: scale(0.94); }
-    .call-btn svg { width: 20px; height: 20px; }
-    .call-accept { background: var(--online); color: #0c1710; }
-    .call-decline, .call-end { background: var(--accent); color: #180f0a; }
-    .call-mute, .call-cam { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
-    .call-mute.active, .call-cam.active { background: var(--accent-soft); border-color: var(--accent-dim); color: var(--accent); }
-    #video-stage {
-      display: none;
-      position: relative;
-      width: 100%;
-      height: 100%;
+    .manage-card .member-item .name { font-weight: 500; }
+    .manage-card .member-item .actions { display: flex; gap: 6px; }
+    .manage-card .member-item .actions button {
+      padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
     }
-    #remote-video { width: 100%; height: 100%; object-fit: cover; background: #000; }
-    #local-video {
-      position: absolute; bottom: 100px; right: 16px;
-      width: 90px; height: 120px; border-radius: 12px;
-      object-fit: cover; border: 2px solid var(--border);
-      background: #000; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-    }
-    #call-bottom-bar {
-      position: absolute; bottom: 20px; left: 0; right: 0;
-      display: flex; justify-content: center; gap: 14px;
-    }
-    .toast {
-      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-      background: var(--bg-elevated); border: 1px solid var(--border);
-      padding: 8px 16px; border-radius: 9px; font-size: 13px;
-      z-index: 40; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-      opacity: 0; pointer-events: none; transition: opacity .2s, top .2s;
-      max-width: 90%;
-    }
-    .toast.show { opacity: 1; top: 20px; }
+    .manage-card .member-item .actions .accept { background: var(--online); color: #0c1710; }
+    .manage-card .member-item .actions .decline { background: var(--accent); color: #1a1714; }
+    .manage-card .danger-zone { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; }
+    .manage-card .danger-zone button { background: var(--accent); color: #1a1714; padding: 8px 16px; border-radius: 8px; font-weight: 600; }
 
-    /* responsiveness: tablet & mobile */
+    /* Toast */
+    #toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, top .25s;
+      max-width: 90%;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    #toast.show { opacity: 1; top: 30px; }
+
+    /* Lightbox */
+    #img-lightbox {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(0,0,0,0.9);
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    #img-lightbox.show { display: flex; }
+    #img-lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; object-fit: contain; }
+    #img-lightbox-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 38px; height: 38px; border-radius: 50%;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      color: var(--text); display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Responsive */
     @media (max-width: 640px) {
-      header { padding: 8px 10px; }
-      .hdr-room { font-size: 13px; }
-      #timer-select { font-size: 10px; padding: 4px 6px; max-width: 90px; }
-      .icon-btn { width: 32px; height: 32px; }
-      .icon-btn svg { width: 16px; height: 16px; }
-      #composer { padding: 6px 8px 8px; gap: 5px; min-height: 52px; }
-      #text-input { font-size: 14px; padding: 8px 10px; min-height: 36px; max-height: 70px; }
-      .composer-btn { width: 36px; height: 36px; min-width: 36px; }
-      .composer-btn svg { width: 16px; height: 16px; }
-      .bubble { font-size: 13px; padding: 8px 10px; }
-      .bubble img { max-height: 200px; }
+      .panel { padding: 12px; }
+      .chat-item, .channel-item { padding: 8px 10px; }
+      .chat-name, .channel-name { font-size: 13px; }
+      .search-row input { font-size: 13px; padding: 8px 10px; }
+      #composer { padding: 6px 8px 8px; gap: 5px; min-height: 48px; }
+      #text-input { font-size: 14px; padding: 8px 10px; min-height: 34px; max-height: 70px; }
+      .composer-btn { width: 36px; height: 36px; }
+      #chat-header { padding: 8px 10px; min-height: 48px; }
+      .chat-room-name { font-size: 14px; }
       .msg-row { max-width: 88%; }
-      .landing-title { font-size: 28px; }
-      .landing-card { padding: 0; }
-      #ss-banner { font-size: 11px; padding: 6px 10px; }
-      #ss-banner svg { width: 13px; height: 13px; }
-      .call-avatar { width: 60px; height: 60px; font-size: 24px; }
-      .call-name { font-size: 16px; }
-      .call-btn { width: 46px; height: 46px; }
-      .call-btn svg { width: 18px; height: 18px; }
-      #local-video { width: 70px; height: 94px; bottom: 80px; right: 12px; }
-      .hdr-right { gap: 2px; }
     }
-    @media (max-width: 420px) {
-      header { flex-wrap: wrap; row-gap: 4px; }
-      .hdr-left { flex: 1 1 100%; }
-      .hdr-right { flex: 1 1 100%; justify-content: flex-end; }
-      #composer { flex-wrap: nowrap; }
-      .msg-row { max-width: 92%; }
-      #timer-select { max-width: 80px; font-size: 9px; }
-    }
-    @media (min-width: 768px) and (max-width: 1024px) {
-      /* tablet fine-tuning */
-      #composer { padding: 10px 14px; }
-      #text-input { font-size: 15px; }
-      .msg-row { max-width: 72%; }
-    }
-    /* landscape phone */
     @media (max-height: 500px) and (orientation: landscape) {
-      header { padding: 4px 10px; min-height: 44px; }
-      #composer { padding: 4px 8px; min-height: 44px; }
-      #text-input { min-height: 30px; max-height: 50px; padding: 6px 10px; }
-      .composer-btn { width: 32px; height: 32px; min-width: 32px; }
-      .composer-btn svg { width: 14px; height: 14px; }
-      .msg-row { max-width: 80%; }
-      #msg-scroll { padding: 8px; }
+      #composer { min-height: 42px; padding: 4px 8px; }
+      #text-input { min-height: 28px; max-height: 46px; padding: 4px 8px; }
+      .composer-btn { width: 30px; height: 30px; }
     }
   </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- WELCOME / SPLASH -->
+  <!-- WELCOME -->
   <div id="welcome">
     <img class="welcome-bg" src="welcome-bg.jpg" alt="">
     <div class="welcome-overlay"></div>
     <div class="welcome-content">
-      <div class="flame-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#e8562a" stroke-width="1.8"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg></div>
+      <div class="flame-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#e17a3b" stroke-width="1.8"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg></div>
       <h1 class="welcome-title wordmark">Welcome, <span class="accent-word">TextME</span></h1>
-      <p class="welcome-sub">Messages that read once, then burn. Sign up or log in, then jump into a room — or search for a friend by username and start chatting instantly.</p>
-      <button class="btn-primary welcome-cta" id="welcome-cta">Get started</button>
-      <div class="welcome-footnote">No account yet? You can sign up on the next screen.</div>
+      <p class="welcome-sub">Messages that read once, then burn. Sign up or log in to start private chats or create permanent channels.</p>
+      <button class="btn-primary" id="welcome-cta">Get started</button>
+      <div class="welcome-footnote">No account? Sign up on the next screen.</div>
     </div>
   </div>
 
-  <!-- LANDING -->
-  <div id="landing" style="display:none;">
-    <img class="landing-bg" src="welcome-bg.jpg" alt="">
-    <div class="landing-bg-overlay"></div>
-
-    <!-- BRAND PANE (wide screens only) -->
-    <div class="landing-brand">
-      <div class="landing-brand-inner">
-        <div class="flame-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#e8562a" stroke-width="1.8"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg></div>
-        <h1 class="landing-brand-title wordmark">TEXTME</h1>
-        <p class="landing-brand-sub">Messages that read once, then burn. Create an account, jump into a room, or search for a friend by username and start chatting instantly.</p>
-        <div class="landing-brand-list">
-          <div class="landing-brand-item"><span class="dot-mark"></span>Messages disappear after they're read</div>
-          <div class="landing-brand-item"><span class="dot-mark"></span>Rooms are locked behind a 6-digit code set by the owner</div>
-          <div class="landing-brand-item"><span class="dot-mark"></span>Screenshot attempts are detected and flagged</div>
-        </div>
+  <!-- MAIN APP -->
+  <div id="main">
+    <div id="top-bar">
+      <span class="brand wordmark">TextME</span>
+      <div class="user-info">
+        <span id="me-label">—</span>
+        <button id="logout-btn">Log out</button>
       </div>
     </div>
 
-    <div class="landing-main">
-    <div class="landing-card">
-      <div class="flame-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#e8562a" stroke-width="1.8"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg></div>
-      <h1 class="landing-title wordmark">TEXTME</h1>
-      <p class="landing-sub" id="landing-sub">Messages that read once, then burn. Create an account, then enter a room code to chat with a friend.</p>
-
-      <!-- AUTH -->
-      <div id="auth-block">
-        <div class="tabs">
-          <button class="tab active" id="tab-login">Log in</button>
-          <button class="tab" id="tab-signup">Sign up</button>
-        </div>
-        <div class="field"><label>Username</label><input id="auth-username" type="text" maxlength="20" autocomplete="username"></div>
-        <div class="field"><label>Password</label><input id="auth-password" type="password" autocomplete="current-password"></div>
-        <button class="btn-primary" id="auth-submit">Log in</button>
-        <div class="error-text" id="auth-error"></div>
-      </div>
-
-      <!-- ROOM -->
-      <div id="room-block" style="display:none;">
-        <div class="logged-in-bar">Signed in as <b id="me-label"></b><button class="link-btn" id="logout-btn">log out</button></div>
-        <div class="field"><label>Room code</label><input id="room-input" type="text" maxlength="24" placeholder="e.g. blue-lagoon-9" autocomplete="off"></div>
-        <div class="field" id="room-pin-field" style="display:none;">
-          <label>6-digit code from the room owner</label>
-          <input id="room-pin-input" type="text" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" class="mono">
-        </div>
-        <button class="btn-primary" id="enter-btn">Enter room</button>
-        <div class="error-text" id="room-error"></div>
-        <div class="landing-note" id="room-pin-note" style="display:none;"></div>
-        <div style="display:flex;justify-content:center;margin-top:12px;"><button class="btn-ghost" id="random-room-btn">Generate a new room code</button></div>
-
-        <div id="recent-rooms-block" style="display:none;">
-          <div class="recent-rooms-label">Recently entered</div>
-          <div class="recent-rooms-list" id="recent-rooms-list"></div>
-        </div>
-
-        <div class="search-divider">your chats</div>
-        <div id="conversations-block">
-          <div class="search-results" id="conversations-list"></div>
-          <div class="search-status" id="conversations-empty">No conversations yet — search a username below to start one.</div>
-        </div>
-
-        <div class="search-divider">or find someone</div>
-        <div id="search-users-block">
-          <div class="field"><label>Search by username</label></div>
-          <div class="search-row">
-            <input id="user-search-input" type="text" maxlength="20" placeholder="e.g. ram" autocomplete="off">
-            <button class="btn-ghost" id="user-search-btn">Search</button>
-          </div>
-          <div class="search-results" id="search-results-list"></div>
-          <div class="search-status" id="search-status" style="display:none;"></div>
-        </div>
-
-        <div class="search-divider">channels</div>
-        <div id="channels-block">
-          <div class="search-row">
-            <input id="channel-name-input" type="text" maxlength="40" placeholder="Name a new permanent channel" autocomplete="off">
-            <button class="btn-ghost" id="create-channel-btn">Create</button>
-          </div>
-          <div class="search-results" id="my-channels-list"></div>
-          <div style="display:flex;justify-content:center;margin-top:10px;">
-            <button class="btn-ghost" id="browse-channels-btn">Browse public channels</button>
-          </div>
-          <div class="search-results" id="browse-channels-list" style="display:none;"></div>
-        </div>
-      </div>
-
-      <div class="landing-note"><b>Before you go in:</b> the first person to enter a room code becomes its owner and gets a 6-digit code — everyone else needs that code to get in. Messages disappear after being read. Screenshots can't be technically blocked — we detect and warn.</div>
+    <div id="nav-tabs">
+      <button class="tab active" data-tab="chats">Chats</button>
+      <button class="tab" data-tab="rooms">Rooms</button>
     </div>
+
+    <!-- CHATS PANEL -->
+    <div class="panel active" id="panel-chats">
+      <div class="search-row">
+        <input type="text" id="user-search-input" placeholder="Search for a user…" maxlength="20">
+        <button class="btn-secondary" id="user-search-btn">Search</button>
+      </div>
+      <div id="search-results-list"></div>
+      <div id="search-status" style="font-size:12px; color:var(--text-faint); text-align:center;"></div>
+
+      <div style="margin-top:8px; font-weight:600; font-size:14px; color:var(--text-dim);">Conversations</div>
+      <div id="conversations-list"></div>
+      <div id="conversations-empty" class="list-empty">No conversations yet. Search a user and start chatting!</div>
+    </div>
+
+    <!-- ROOMS PANEL -->
+    <div class="panel" id="panel-rooms">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="text" id="channel-name-input" placeholder="New channel name" maxlength="40" style="flex:1; padding:10px 12px; background:var(--bg-input); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:14px; outline:none;">
+        <button class="btn-primary" id="create-channel-btn" style="width:auto; padding:10px 18px;">Create</button>
+      </div>
+
+      <div><span style="font-weight:600; font-size:14px; color:var(--text-dim);">My Channels</span></div>
+      <div id="my-channels-list"></div>
+      <div id="my-channels-empty" class="list-empty">You haven't created or joined any channels yet.</div>
+
+      <div><button class="btn-secondary" id="browse-channels-btn" style="width:100%;">Browse public channels</button></div>
+      <div id="browse-channels-list"></div>
     </div>
   </div>
 
-  <!-- CHAT -->
-  <div id="chat">
-    <header>
-      <div class="hdr-left">
-        <div class="room-badge"><svg viewBox="0 0 24 24" fill="none" stroke="#e8562a" stroke-width="1.8"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg></div>
-        <div class="hdr-meta">
-          <div class="hdr-room mono" id="hdr-room-name">—</div>
-          <div class="hdr-presence"><span class="dot" id="conn-dot"></span><span id="hdr-presence-text">connecting…</span></div>
-        </div>
-      </div>
-      <div class="hdr-right">
-        <select id="timer-select">
-          <option value="30">Burn in 30s</option>
-          <option value="300" selected>Burn in 5 min</option>
-          <option value="3600">Burn in 1 hr</option>
-          <option value="86400">Burn in 1 day</option>
-          <option value="0">Never burn</option>
+  <!-- CHAT VIEW (overlay) -->
+  <div id="chat-view">
+    <div id="chat-header">
+      <button id="chat-back">←</button>
+      <span class="chat-room-name" id="chat-room-name">Room</span>
+      <span class="chat-room-meta" id="chat-room-meta">
+        <span class="dot" id="conn-dot"></span>
+        <span id="presence-text">online</span>
+      </span>
+      <div class="chat-actions">
+        <select id="timer-select" style="background:var(--bg-input); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:3px 5px; font-size:10px; outline:none;">
+          <option value="30">30s</option>
+          <option value="300" selected>5m</option>
+          <option value="3600">1h</option>
+          <option value="86400">1d</option>
+          <option value="0">∞</option>
         </select>
-        <button class="icon-btn" id="call-audio-btn" title="Voice call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L8 9.7a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/></svg></button>
-        <button class="icon-btn" id="call-video-btn" title="Video call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8.5l-6 3.5 6 3.5v-7z"/></svg></button>
-        <button class="icon-btn" id="leave-btn" title="Leave room"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></button>
+        <button id="call-audio-btn" title="Voice call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L8 9.7a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/></svg></button>
+        <button id="call-video-btn" title="Video call"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8.5l-6 3.5 6 3.5v-7z"/></svg></button>
+        <button id="leave-chat-btn" title="Leave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></button>
+        <button id="manage-btn" style="display:none;" title="Manage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg></button>
       </div>
-    </header>
-
-    <div id="ss-banner">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-      <span>Screenshots can't be truly blocked. If we detect one, the other person is notified.</span>
-      <button id="ss-dismiss">Got it</button>
     </div>
 
     <div id="msg-scroll">
-      <div class="empty-state" id="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-1-2-1-2 2 1 3 3 3 5.5A6.5 6.5 0 0 1 13.5 22 6.5 6.5 0 0 1 7 15.5C7 10 12 8 12 2z"/></svg>
-        <div>No messages yet. Say something — it'll start burning once your friend reads it.</div>
-      </div>
+      <div class="list-empty" id="empty-state">No messages yet. Say something — it'll burn after being read.</div>
     </div>
 
-    <!-- COMPOSER — always visible, properly sized -->
     <div id="composer">
-      <button class="composer-btn" id="attach-image-btn" title="Send image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
-      <button class="composer-btn" id="attach-file-btn" title="Send file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21.4 11.6L12.6 20.4a4 4 0 0 1-5.7-5.7l8.5-8.5a2.7 2.7 0 0 1 3.8 3.8l-8.4 8.5a1.3 1.3 0 0 1-1.9-1.9l7.8-7.8"/></svg></button>
-      <button class="composer-btn" id="attach-contact-btn" title="Share contact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
+      <button class="composer-btn" id="attach-image-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
+      <button class="composer-btn" id="attach-file-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21.4 11.6L12.6 20.4a4 4 0 0 1-5.7-5.7l8.5-8.5a2.7 2.7 0 0 1 3.8 3.8l-8.4 8.5a1.3 1.3 0 0 1-1.9-1.9l7.8-7.8"/></svg></button>
+      <button class="composer-btn" id="attach-contact-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
       <input type="file" id="file-image" accept="image/*" style="display:none;">
       <input type="file" id="file-generic" style="display:none;">
       <textarea id="text-input" rows="1" placeholder="Type a message…"></textarea>
-      <button class="composer-btn" id="send-btn" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
-    </div>
-
-    <div id="call-overlay">
-      <div id="call-idle-stage">
-        <div class="call-avatar" id="call-avatar-letter">?</div>
-        <div class="call-name" id="call-peer-name">—</div>
-        <div class="call-status" id="call-status-text">Calling…</div>
-        <div class="call-actions" id="call-actions-incoming" style="display:none;">
-          <button class="call-btn call-decline" id="call-decline-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 3.1 4.2 2 2 0 0 1 5.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L9 9.7a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z" transform="rotate(135 12 12)"/></svg></button>
-          <button class="call-btn call-accept" id="call-accept-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L8 9.7a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/></svg></button>
-        </div>
-        <div class="call-actions" id="call-actions-outgoing" style="display:none;">
-          <button class="call-btn call-end" id="call-cancel-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 3.1 4.2 2 2 0 0 1 5.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L9 9.7a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z" transform="rotate(135 12 12)"/></svg></button>
-        </div>
-      </div>
-      <div id="video-stage">
-        <video id="remote-video" autoplay playsinline></video>
-        <video id="local-video" autoplay playsinline muted></video>
-        <div id="call-bottom-bar">
-          <button class="call-btn call-mute" id="mute-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v4"/></svg></button>
-          <button class="call-btn call-end" id="hangup-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 3.1 4.2 2 2 0 0 1 5.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L9 9.7a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z" transform="rotate(135 12 12)"/></svg></button>
-          <button class="call-btn call-cam" id="cam-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8.5l-6 3.5 6 3.5v-7z"/></svg></button>
-        </div>
-      </div>
+      <button class="composer-btn" id="send-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
-
-  <!-- fullscreen image viewer -->
-  <div id="img-lightbox">
-    <button id="img-lightbox-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
-    <img id="img-lightbox-img" src="" alt="full size image">
+  <!-- Manage Modal -->
+  <div id="manage-modal">
+    <div class="manage-card">
+      <h2 id="manage-title">Manage Channel</h2>
+      <div class="sub" id="manage-sub">Owner: <span id="manage-owner"></span></div>
+      <div style="margin: 12px 0 8px; font-weight:600; font-size:14px;">Pending Requests</div>
+      <div id="pending-list"></div>
+      <div style="margin: 12px 0 8px; font-weight:600; font-size:14px;">Members</div>
+      <div id="members-list"></div>
+      <div class="danger-zone">
+        <button id="delete-channel-btn">Delete Channel Permanently</button>
+      </div>
+      <button class="btn-secondary" style="margin-top:16px; width:100%;" id="close-manage">Close</button>
+    </div>
   </div>
+
+  <div id="toast"></div>
+  <div id="img-lightbox"><button id="img-lightbox-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button><img id="img-lightbox-img" src="" alt=""></div>
 </div>
 
 <script>
 (function(){
   'use strict';
 
-  // Keep a real, up-to-date viewport height in a CSS var. Mobile browsers
-  // (especially iOS Safari / Android Chrome) resize their address bar and
-  // keyboard without firing a clean 100vh update, which is what was hiding
-  // the composer ("text sending tab") on phones/tablets. We recompute on
-  // load, resize, orientation change, and visualViewport changes (keyboard).
+  // Viewport height fix
   function setAppVh(){
     const vv = window.visualViewport;
     const h = vv ? vv.height : window.innerHeight;
@@ -873,132 +629,126 @@
 
   let token = localStorage.getItem('textme_token') || null;
   let me = null;
-  let room = null;
+  let currentRoom = null; // room code currently open in chat view
   let ws = null;
-  let wsReconnectAttempts = 0;
-  let currentPeer = null; // set when entering a direct-message room so the server can link both accounts
-
-  // LOBBY — a second, always-on connection (while logged in) used only for
-  // push notifications and the chats/channels list, independent of whatever
-  // specific room the main `ws` above is connected to.
   let lobbyWs = null;
+  let wsReconnectAttempts = 0;
   let lobbyReconnectAttempts = 0;
   let conversations = [];
   let myChannels = [];
-  let timerSeconds = 300;
   let messages = {};
-  let burnCheckHandle = null;
+  let timerSeconds = 300;
+  let currentPeer = null; // for DMs
+  let isOwner = false; // for current channel
+  let channelOwner = null;
 
-  let pc = null;
-  let localStream = null;
-  let currentCallId = null;
-  let callRole = null;
-  let peerUsername = null;
-  let pendingIce = [];
-  let callActive = false;
-  let micOn = true;
-  let camOn = true;
+  // Call state
+  let pc = null, localStream = null, currentCallId = null, callRole = null, peerUsername = null;
+  let pendingIce = [], callActive = false;
 
-  function $(id){ return document.getElementById(id); }
-  function esc(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function linkify(text){ return esc(text).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'); }
-  function fmtTime(ts){ return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
-  function fmtCountdown(ms){ if(ms<=0) return '0:00'; const s=Math.ceil(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
-  function showToast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3200); }
-  function slugRoom(s){ return s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60); }
+  // DOM shortcuts
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const linkify = text => esc(text).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  const fmtTime = ts => new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  const slugRoom = s => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
 
-  // RECENT ROOMS — remembers the rooms this account has entered, so they
-  // can be re-joined with one tap instead of retyping the room code.
-  const RECENT_ROOMS_MAX = 6;
-  function recentRoomsKey(){ return `textme_recent_rooms_${me}`; }
-  function loadRecentRooms(){
-    if(!me) return [];
-    try{ return JSON.parse(localStorage.getItem(recentRoomsKey())) || []; }
-    catch(e){ return []; }
+  // Toast
+  function showToast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(()=> t.classList.remove('show'), 3200);
   }
-  function saveRecentRoom(roomName){
-    if(!me) return;
-    let list = loadRecentRooms().filter(r => r.room !== roomName);
-    list.unshift({ room: roomName, lastEntered: Date.now() });
-    list = list.slice(0, RECENT_ROOMS_MAX);
-    localStorage.setItem(recentRoomsKey(), JSON.stringify(list));
-    renderRecentRooms();
+
+  // Navigation
+  function switchTab(tab){
+    document.querySelectorAll('#nav-tabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-'+tab));
   }
-  function removeRecentRoom(roomName){
-    const list = loadRecentRooms().filter(r => r.room !== roomName);
-    localStorage.setItem(recentRoomsKey(), JSON.stringify(list));
-    renderRecentRooms();
-  }
-  function fmtRelativeTime(ts){
-    const diff = Date.now() - ts;
-    const min = Math.floor(diff/60000);
-    if(min < 1) return 'just now';
-    if(min < 60) return `${min}m ago`;
-    const hr = Math.floor(min/60);
-    if(hr < 24) return `${hr}h ago`;
-    const day = Math.floor(hr/24);
-    if(day < 7) return `${day}d ago`;
-    return new Date(ts).toLocaleDateString();
-  }
-  function renderRecentRooms(){
-    const list = loadRecentRooms();
-    const block = $('recent-rooms-block');
-    const listEl = $('recent-rooms-list');
-    if(!list.length){ block.style.display = 'none'; listEl.innerHTML = ''; return; }
-    block.style.display = 'block';
-    listEl.innerHTML = list.map(r => `
-      <div class="recent-room-item">
-        <button class="recent-room-name mono" style="flex:1;min-width:0;background:none;text-align:left;color:inherit;" data-room="${esc(r.room)}">${esc(r.room)}</button>
-        <span class="recent-room-time">${fmtRelativeTime(r.lastEntered)}</span>
-        <button class="recent-room-remove" data-remove="${esc(r.room)}" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
-      </div>
-    `).join('');
-    listEl.querySelectorAll('[data-room]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{ $('room-input').value = btn.dataset.room; enterRoom(); });
+  document.querySelectorAll('#nav-tabs .tab').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      if(btn.dataset.tab === 'chats') switchTab('chats');
+      else if(btn.dataset.tab === 'rooms') { loadRooms(); switchTab('rooms'); }
     });
-    listEl.querySelectorAll('[data-remove]').forEach(btn=>{
-      btn.addEventListener('click', (e)=>{ e.stopPropagation(); removeRecentRoom(btn.dataset.remove); });
-    });
-  }
-
-  // WELCOME
-  $('welcome-cta').addEventListener('click', ()=>{
-    $('welcome').style.display = 'none';
-    $('landing').style.display = 'flex';
   });
 
-  // AUTH
-  let authMode = 'login';
-  $('tab-login').addEventListener('click', ()=> setAuthMode('login'));
-  $('tab-signup').addEventListener('click', ()=> setAuthMode('signup'));
-  function setAuthMode(mode){
-    authMode = mode;
-    $('tab-login').classList.toggle('active', mode==='login');
-    $('tab-signup').classList.toggle('active', mode==='signup');
-    $('auth-submit').textContent = mode==='login' ? 'Log in' : 'Create account';
-    $('auth-error').style.display = 'none';
-  }
-  $('auth-submit').addEventListener('click', doAuth);
-  $('auth-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doAuth(); });
+  // Welcome & Auth
+  $('welcome-cta').addEventListener('click', ()=>{
+    $('welcome').style.display = 'none';
+    $('main').classList.add('active');
+    if(!token) showAuth();
+    else afterAuth();
+  });
 
-  async function doAuth(){
-    const username = $('auth-username').value.trim();
-    const password = $('auth-password').value;
-    if(!username || !password){ showAuthError('Enter a username and password'); return; }
-    $('auth-submit').disabled = true;
-    try{
-      const res = await fetch(`/api/${authMode === 'login' ? 'login' : 'signup'}`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password})
-      });
-      const data = await res.json();
-      if(!res.ok){ showAuthError(data.error || 'Something went wrong'); return; }
-      token = data.token;
-      localStorage.setItem('textme_token', token);
-      await afterAuth();
-    }catch(e){ showAuthError('Could not reach the server'); }
-    finally{ $('auth-submit').disabled = false; }
+  function showAuth(){
+    // We'll embed a simple login/signup inline in the main area for simplicity
+    // Since we have a welcome, we can show a modal or replace content.
+    // For simplicity, we'll just prompt using the existing welcome? But we already have the main.
+    // We'll create a simple overlay for auth:
+    const overlay = document.createElement('div');
+    overlay.id = 'auth-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:999;';
+    overlay.innerHTML = `
+      <div style="background:var(--bg-elevated);padding:24px;border-radius:16px;max-width:400px;width:90%;">
+        <h2 style="margin-bottom:12px;">Sign in</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <button id="auth-tab-login" style="flex:1;padding:8px;border-radius:8px;background:var(--accent);color:#1a1714;font-weight:600;">Log in</button>
+          <button id="auth-tab-signup" style="flex:1;padding:8px;border-radius:8px;background:var(--bg-input);color:var(--text-dim);font-weight:600;">Sign up</button>
+        </div>
+        <div class="field"><label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;">Username</label><input id="auth-username" type="text" maxlength="20" style="width:100%;padding:10px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;"></div>
+        <div class="field"><label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;">Password</label><input id="auth-password" type="password" style="width:100%;padding:10px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;color:var(--text);outline:none;"></div>
+        <button id="auth-submit" style="width:100%;padding:12px;background:var(--accent);color:#1a1714;font-weight:600;border-radius:10px;margin-top:8px;">Log in</button>
+        <div id="auth-error" style="color:var(--accent);font-size:13px;margin-top:8px;display:none;"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    let authMode = 'login';
+    const tabLogin = overlay.querySelector('#auth-tab-login');
+    const tabSignup = overlay.querySelector('#auth-tab-signup');
+    const submitBtn = overlay.querySelector('#auth-submit');
+    const errorEl = overlay.querySelector('#auth-error');
+    const usernameInput = overlay.querySelector('#auth-username');
+    const passwordInput = overlay.querySelector('#auth-password');
+
+    tabLogin.addEventListener('click', ()=>{ authMode='login'; tabLogin.style.background='var(--accent)'; tabLogin.style.color='#1a1714'; tabSignup.style.background='var(--bg-input)'; tabSignup.style.color='var(--text-dim)'; submitBtn.textContent='Log in'; errorEl.style.display='none'; });
+    tabSignup.addEventListener('click', ()=>{ authMode='signup'; tabSignup.style.background='var(--accent)'; tabSignup.style.color='#1a1714'; tabLogin.style.background='var(--bg-input)'; tabLogin.style.color='var(--text-dim)'; submitBtn.textContent='Create account'; errorEl.style.display='none'; });
+
+    async function doAuth(){
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      if(!username || !password){ errorEl.textContent='Enter a username and password'; errorEl.style.display='block'; return; }
+      submitBtn.disabled = true;
+      try{
+        const res = await fetch(`/api/${authMode === 'login' ? 'login' : 'signup'}`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password})
+        });
+        const data = await res.json();
+        if(!res.ok){ errorEl.textContent = data.error || 'Something went wrong'; errorEl.style.display='block'; return; }
+        token = data.token;
+        localStorage.setItem('textme_token', token);
+        overlay.remove();
+        await afterAuth();
+      }catch(e){ errorEl.textContent='Could not reach server'; errorEl.style.display='block'; }
+      finally{ submitBtn.disabled = false; }
+    }
+    submitBtn.addEventListener('click', doAuth);
+    passwordInput.addEventListener('keydown', e=>{ if(e.key==='Enter') doAuth(); });
   }
-  function showAuthError(msg){ const e=$('auth-error'); e.textContent=msg; e.style.display='block'; }
+
+  // Logout
+  $('logout-btn').addEventListener('click', ()=>{
+    token = null; me = null;
+    localStorage.removeItem('textme_token');
+    if(lobbyWs) { try{ lobbyWs.close(); }catch(e){} }
+    if(ws) { try{ ws.close(); }catch(e){} }
+    conversations = []; myChannels = [];
+    renderConversations(); renderMyChannels();
+    $('me-label').textContent = '';
+    // show auth again
+    showAuth();
+  });
 
   async function afterAuth(){
     const res = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -1006,184 +756,16 @@
     const data = await res.json();
     me = data.username;
     $('me-label').textContent = me;
-    $('auth-block').style.display = 'none';
-    $('room-block').style.display = 'block';
-    renderRecentRooms();
-    conversations = []; myChannels = [];
-    renderConversations(); renderMyChannels();
     connectLobby();
+    switchTab('chats');
+    loadConversations();
+    loadRooms();
   }
 
-  $('logout-btn').addEventListener('click', ()=>{
-    token = null; me = null;
-    localStorage.removeItem('textme_token');
-    $('auth-block').style.display='block';
-    $('room-block').style.display='none';
-    $('auth-username').value=''; $('auth-password').value='';
-    if(lobbyWs){ const s=lobbyWs; lobbyWs=null; try{ s.close(); }catch(e){} }
-    conversations = []; myChannels = [];
-  });
-
-  (async function init(){
-    if(token){ await afterAuth(); }
-  })();
-
-  // ROOM
-  $('random-room-btn').addEventListener('click', ()=>{
-    const words = ['cedar','ash','dusk','flint','coral','birch','onyx','maple','storm','haze','ridge','vale'];
-    const a = words[Math.floor(Math.random()*words.length)];
-    const b = words[Math.floor(Math.random()*words.length)];
-    $('room-input').value = a+'-'+b+'-'+Math.floor(Math.random()*90+10);
-  });
-  $('enter-btn').addEventListener('click', enterRoom);
-  $('room-input').addEventListener('keydown', e=>{ if(e.key==='Enter') enterRoom(); });
-
-  function setRoomError(msg){
-    const el = $('room-error');
-    if(!msg){ el.style.display='none'; el.textContent=''; return; }
-    el.style.display='block'; el.textContent = msg;
-  }
-
-  async function enterRoom(peer){
-    const r = slugRoom($('room-input').value);
-    if(!r){ showToast('Enter a room code'); return; }
-    setRoomError('');
-
-    // Group rooms (not DMs, not channels) are gated: the first person in
-    // becomes the owner and gets a 6-digit code; everyone else must supply
-    // it. DMs/channels sail through this check unaffected.
-    const pin = $('room-pin-input').value.trim();
-    let access;
-    try{
-      const res = await fetch('/api/rooms/enter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ code: r, pin })
-      });
-      access = await res.json();
-      if(!res.ok){
-        if(access.needsPin){
-          $('room-pin-field').style.display = 'block';
-          setRoomError(access.error || 'This room needs a 6-digit code from its owner');
-          $('room-pin-input').focus();
-        } else {
-          setRoomError(access.error || 'Could not enter that room');
-        }
-        return;
-      }
-    }catch(e){ setRoomError('Could not reach the server'); return; }
-
-    $('room-pin-field').style.display = 'none';
-    $('room-pin-input').value = '';
-    if(access.isOwner && access.pin){
-      $('room-pin-note').style.display = 'block';
-      $('room-pin-note').innerHTML = `<b>You own this room.</b> Share this 6-digit code with anyone you want to let in — no one else can enter without it: <span class="mono" style="font-size:18px;letter-spacing:3px;">${esc(access.pin)}</span>`;
-    } else {
-      $('room-pin-note').style.display = 'none';
-    }
-
-    room = r;
-    currentPeer = peer || null;
-    if(currentPeer){
-      const c = conversations.find(x => x.room === r);
-      if(c){ c.unread = 0; renderConversations(); }
-    }
-    $('landing').style.display='none';
-    $('chat').style.display='flex';
-    $('hdr-room-name').textContent = room;
-    connectWS();
-    initScreenshotDeterrence();
-    saveRecentRoom(room);
-  }
-
-  // FIND A USER — search registered usernames and jump straight into a
-  // 1:1 room with them (no need to share a room code by hand).
-  let searchDebounceHandle = null;
-  $('user-search-btn').addEventListener('click', doUserSearch);
-  $('user-search-input').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doUserSearch(); } });
-  $('user-search-input').addEventListener('input', ()=>{
-    clearTimeout(searchDebounceHandle);
-    const q = $('user-search-input').value.trim();
-    if(!q){ $('search-results-list').innerHTML=''; setSearchStatus(''); return; }
-    searchDebounceHandle = setTimeout(doUserSearch, 350);
-  });
-
-  function setSearchStatus(msg){
-    const el = $('search-status');
-    if(!msg){ el.style.display='none'; el.textContent=''; return; }
-    el.style.display='block'; el.textContent = msg;
-  }
-
-  async function doUserSearch(){
-    const q = $('user-search-input').value.trim();
-    if(!q){ setSearchStatus('Type a username to search'); return; }
-    if(q.toLowerCase() === (me||'').toLowerCase()){ setSearchStatus("That's you!"); $('search-results-list').innerHTML=''; return; }
-    setSearchStatus('Searching…');
-    $('search-results-list').innerHTML = '';
-    try{
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if(!res.ok){ setSearchStatus('Search is unavailable right now'); return; }
-      const data = await res.json();
-      const users = (data.users || []).filter(u => u.toLowerCase() !== (me||'').toLowerCase());
-      if(!users.length){ setSearchStatus(`No users found matching "${q}"`); return; }
-      setSearchStatus('');
-      renderSearchResults(users);
-    }catch(e){ setSearchStatus('Could not reach the server'); }
-  }
-
-  function renderSearchResults(users){
-    $('search-results-list').innerHTML = users.map(u => `
-      <div class="search-result-item">
-        <div class="search-result-avatar">${esc(u[0]||'?').toUpperCase()}</div>
-        <div class="search-result-name">${esc(u)}</div>
-        <button class="search-result-msg-btn" data-user="${esc(u)}">Message</button>
-      </div>
-    `).join('');
-    $('search-results-list').querySelectorAll('[data-user]').forEach(btn=>{
-      btn.addEventListener('click', ()=> startDirectMessage(btn.dataset.user));
-    });
-  }
-
-  // Builds a stable, unique room code for a pair of users (same code
-  // regardless of who initiates), so both people land in the same room.
-  function dmRoomCode(userA, userB){
-    const pair = [userA.toLowerCase(), userB.toLowerCase()].sort();
-    return slugRoom(`dm-${pair[0]}-${pair[1]}`);
-  }
-
-  function startDirectMessage(username){
-    $('room-input').value = dmRoomCode(me, username);
-    enterRoom(username);
-  }
-
-  // WEBSOCKET
-  function connectWS(){
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    let url = `${proto}://${location.host}/ws?token=${encodeURIComponent(token)}&room=${encodeURIComponent(room)}`;
-    if(currentPeer) url += `&peer=${encodeURIComponent(currentPeer)}`;
-    ws = new WebSocket(url);
-    ws.onopen = ()=>{ wsReconnectAttempts = 0; $('conn-dot').classList.remove('offline'); };
-    ws.onmessage = (ev)=>{ try{ handleServerMessage(JSON.parse(ev.data)); }catch(e){} };
-    ws.onclose = ()=>{
-      $('conn-dot').classList.add('offline');
-      $('hdr-presence-text').textContent = 'reconnecting…';
-      if(room){
-        wsReconnectAttempts++;
-        setTimeout(connectWS, Math.min(1000 * wsReconnectAttempts, 8000));
-      }
-    };
-    ws.onerror = ()=>{};
-  }
-  function wsSend(obj){ if(ws && ws.readyState===1) ws.send(JSON.stringify(obj)); }
-
-  // LOBBY WEBSOCKET — stays connected while logged in (independent of
-  // whichever chat room `ws` is pointed at) so DMs from anyone can reach
-  // this account and the chats/channels lists stay live.
+  // Lobby WebSocket
   function connectLobby(){
     if(!token) return;
-    if(lobbyWs){ try{ lobbyWs.close(); }catch(e){} lobbyWs=null; }
+    if(lobbyWs) { try{ lobbyWs.close(); }catch(e){} lobbyWs=null; }
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const url = `${proto}://${location.host}/ws?token=${encodeURIComponent(token)}&room=__lobby__`;
     lobbyWs = new WebSocket(url);
@@ -1204,10 +786,21 @@
         myChannels = data.channels || [];
         renderConversations();
         renderMyChannels();
+        // if there are pending requests, show a notification? We'll handle via UI refresh when manage modal opens.
         break;
       case 'dm-notify':
         upsertConversation(data);
-        if(room !== data.room) showToast(`New message from ${data.from}`);
+        if(!currentRoom || currentRoom !== data.room) showToast(`New message from ${data.from}`);
+        break;
+      case 'channel-request':
+        showToast(`New join request for channel "${data.code}" from ${data.from}`);
+        // refresh rooms if needed
+        loadRooms();
+        break;
+      case 'channel-request-update':
+        if(data.status === 'accepted') showToast(`You were accepted into channel "${data.code}"`);
+        else if(data.status === 'declined') showToast(`Your request to join "${data.code}" was declined`);
+        loadRooms();
         break;
       default: break;
     }
@@ -1222,46 +815,140 @@
     renderConversations();
   }
 
+  // Render conversations
   function renderConversations(){
     const el = $('conversations-list');
     const empty = $('conversations-empty');
     if(!conversations.length){ el.innerHTML=''; empty.style.display='block'; return; }
     empty.style.display='none';
     el.innerHTML = conversations.map(c => `
-      <div class="search-result-item chat-item" data-room="${esc(c.room)}">
-        <div class="search-result-avatar">${esc((c.otherUser||'?')[0]||'?').toUpperCase()}</div>
-        <div class="chat-item-text">
-          <div class="chat-item-name">${esc(c.otherUser)}</div>
-          <div class="chat-item-preview">${c.lastMessage ? esc(c.lastMessage.preview || '') : 'No messages yet'}</div>
+      <div class="chat-item" data-room="${esc(c.room)}" data-peer="${esc(c.otherUser)}">
+        <div class="avatar">${esc((c.otherUser||'?')[0]||'?').toUpperCase()}</div>
+        <div class="chat-info">
+          <div class="chat-name">${esc(c.otherUser)}</div>
+          <div class="chat-preview">${c.lastMessage ? esc(c.lastMessage.preview || '') : 'No messages yet'}</div>
         </div>
-        ${c.unread ? `<span class="chat-unread-badge">${c.unread}</span>` : ''}
+        ${c.unread ? `<span class="badge">${c.unread}</span>` : ''}
       </div>
     `).join('');
-    el.querySelectorAll('[data-room]').forEach(item=>{
+    el.querySelectorAll('[data-room]').forEach(item => {
       item.addEventListener('click', ()=>{
-        const c = conversations.find(x => x.room === item.dataset.room);
-        if(c) startDirectMessage(c.otherUser);
+        const room = item.dataset.room;
+        const peer = item.dataset.peer;
+        openChat(room, peer);
       });
     });
   }
 
+  // Render my channels
   function renderMyChannels(){
     const el = $('my-channels-list');
-    if(!myChannels.length){ el.innerHTML=''; return; }
-    el.innerHTML = myChannels.map(c => `
-      <div class="search-result-item chat-item" data-code="${esc(c.code)}">
-        <div class="search-result-avatar channel-avatar">#</div>
-        <div class="chat-item-text">
-          <div class="chat-item-name">${esc(c.name)}</div>
-          <div class="chat-item-preview">${c.memberCount} member${c.memberCount===1?'':'s'}</div>
+    const empty = $('my-channels-empty');
+    if(!myChannels.length){ el.innerHTML=''; empty.style.display='block'; return; }
+    empty.style.display='none';
+    el.innerHTML = myChannels.map(ch => {
+      const isOwner = ch.createdBy && ch.createdBy.toLowerCase() === (me||'').toLowerCase();
+      const status = ch.status || 'accepted'; // default
+      let actionHtml = '';
+      if(isOwner){
+        actionHtml = `<button class="channel-action manage" data-code="${esc(ch.code)}" data-action="manage">Manage</button>`;
+      } else {
+        if(status === 'pending') actionHtml = `<span class="channel-action pending">Pending</span>`;
+        else if(status === 'accepted') actionHtml = `<button class="channel-action" data-code="${esc(ch.code)}" data-action="open">Open</button>`;
+        else actionHtml = `<button class="channel-action" data-code="${esc(ch.code)}" data-action="join">Join</button>`;
+      }
+      return `
+        <div class="channel-item" data-code="${esc(ch.code)}">
+          <div class="avatar" style="background:var(--bg-input);color:var(--accent);">#</div>
+          <div class="channel-info">
+            <div class="channel-name">${esc(ch.name)} ${isOwner ? '<span class="channel-owner-badge">Owner</span>' : ''}</div>
+            <div class="channel-meta">${ch.memberCount || 0} members · ${ch.pendingCount || 0} pending</div>
+          </div>
+          ${actionHtml}
         </div>
-      </div>
-    `).join('');
-    el.querySelectorAll('[data-code]').forEach(item=>{
-      item.addEventListener('click', ()=>{ $('room-input').value = item.dataset.code; enterRoom(); });
+      `;
+    }).join('');
+    el.querySelectorAll('[data-code]').forEach(item => {
+      const code = item.dataset.code;
+      const actionBtn = item.querySelector('[data-action]');
+      if(actionBtn){
+        actionBtn.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          const action = actionBtn.dataset.action;
+          if(action === 'manage') openManageModal(code);
+          else if(action === 'open') openChat(code);
+          else if(action === 'join') joinChannel(code);
+        });
+      } else {
+        // click on item itself (for open)
+        item.addEventListener('click', ()=>{
+          const ch = myChannels.find(c => c.code === code);
+          if(ch && ch.status === 'accepted') openChat(code);
+          else if(ch && ch.status === 'pending') showToast('Your request is pending approval');
+          else joinChannel(code);
+        });
+      }
     });
   }
 
+  async function joinChannel(code){
+    try{
+      const res = await fetch(`/api/channels/${encodeURIComponent(code)}/join`, {
+        method:'POST', headers:{'Authorization':`Bearer ${token}`}
+      });
+      const data = await res.json();
+      if(!res.ok){ showToast(data.error || 'Could not join'); return; }
+      showToast('Join request sent, waiting for owner approval.');
+      loadRooms();
+    }catch(e){ showToast('Error joining channel'); }
+  }
+
+  async function loadRooms(){
+    try{
+      const res = await fetch('/api/channels', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      // We'll store all channels? We'll use the lobby state, but also we can fetch.
+      // For simplicity, we'll rely on lobby, but we can update.
+      // Actually lobby gives us myChannels only. We also need to show browse list.
+      // We'll fetch separately for browse.
+      const allChannels = data.channels || [];
+      renderBrowseChannels(allChannels);
+    }catch(e){}
+  }
+
+  function renderBrowseChannels(channels){
+    const el = $('browse-channels-list');
+    const myCodes = myChannels.map(c => c.code);
+    const filtered = channels.filter(c => !myCodes.includes(c.code));
+    if(!filtered.length){ el.innerHTML = '<div class="list-empty">No public channels to join.</div>'; return; }
+    el.innerHTML = filtered.map(ch => `
+      <div class="channel-item">
+        <div class="avatar" style="background:var(--bg-input);color:var(--accent);">#</div>
+        <div class="channel-info">
+          <div class="channel-name">${esc(ch.name)}</div>
+          <div class="channel-meta">${ch.memberCount || 0} members</div>
+        </div>
+        <button class="channel-action" data-code="${esc(ch.code)}">Join</button>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-code]').forEach(btn => {
+      btn.addEventListener('click', ()=>{ joinChannel(btn.dataset.code); });
+    });
+  }
+
+  $('browse-channels-btn').addEventListener('click', ()=>{
+    const el = $('browse-channels-list');
+    if(el.style.display === 'none' || !el.style.display){
+      el.style.display = 'flex';
+      $('browse-channels-btn').textContent = 'Hide public channels';
+      loadRooms();
+    } else {
+      el.style.display = 'none';
+      $('browse-channels-btn').textContent = 'Browse public channels';
+    }
+  });
+
+  // Create channel
   $('create-channel-btn').addEventListener('click', async ()=>{
     const name = $('channel-name-input').value.trim();
     if(!name){ showToast('Enter a channel name'); return; }
@@ -1270,68 +957,120 @@
         method:'POST', headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${token}`}, body: JSON.stringify({name})
       });
       const data = await res.json();
-      if(!res.ok){ showToast(data.error || 'Could not create channel'); return; }
+      if(!res.ok){ showToast(data.error || 'Could not create'); return; }
       $('channel-name-input').value = '';
-      myChannels.unshift(data.channel);
-      renderMyChannels();
-      showToast(`Channel "${data.channel.name}" created — it'll stay open for anyone to join`);
-      $('room-input').value = data.channel.code;
-      enterRoom();
-    }catch(e){ showToast('Could not reach the server'); }
+      showToast(`Channel "${data.channel.name}" created!`);
+      loadRooms();
+      // also open it?
+      openChat(data.channel.code);
+    }catch(e){ showToast('Error creating channel'); }
   });
 
-  let browseChannelsOpen = false;
-  $('browse-channels-btn').addEventListener('click', async ()=>{
-    if(browseChannelsOpen){
-      browseChannelsOpen = false;
-      $('browse-channels-list').style.display = 'none';
-      $('browse-channels-btn').textContent = 'Browse public channels';
-      return;
-    }
+  // User search
+  let searchDebounce;
+  $('user-search-btn').addEventListener('click', doUserSearch);
+  $('user-search-input').addEventListener('input', ()=>{
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(doUserSearch, 350);
+  });
+  $('user-search-input').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doUserSearch(); } });
+
+  async function doUserSearch(){
+    const q = $('user-search-input').value.trim().toLowerCase();
+    const resultsEl = $('search-results-list');
+    const statusEl = $('search-status');
+    if(!q){ resultsEl.innerHTML=''; statusEl.textContent=''; return; }
+    if(q === (me||'').toLowerCase()){ statusEl.textContent="That's you!"; resultsEl.innerHTML=''; return; }
+    statusEl.textContent = 'Searching…';
     try{
-      const res = await fetch('/api/channels', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
-      renderBrowseChannels(data.channels || []);
-      browseChannelsOpen = true;
-      $('browse-channels-list').style.display = 'flex';
-      $('browse-channels-btn').textContent = 'Hide public channels';
-    }catch(e){ showToast('Could not reach the server'); }
+      const users = (data.users || []).filter(u => u.toLowerCase() !== (me||'').toLowerCase());
+      if(!users.length){ statusEl.textContent=`No users found for "${q}"`; resultsEl.innerHTML=''; return; }
+      statusEl.textContent = '';
+      resultsEl.innerHTML = users.map(u => `
+        <div class="chat-item" data-user="${esc(u)}">
+          <div class="avatar">${esc(u[0]||'?').toUpperCase()}</div>
+          <div class="chat-info">
+            <div class="chat-name">${esc(u)}</div>
+            <div class="chat-preview">Click to start a chat</div>
+          </div>
+        </div>
+      `).join('');
+      resultsEl.querySelectorAll('[data-user]').forEach(item => {
+        item.addEventListener('click', ()=>{
+          const user = item.dataset.user;
+          const room = slugRoom(`dm-${[me, user].sort().join('-')}`);
+          openChat(room, user);
+        });
+      });
+    }catch(e){ statusEl.textContent='Error searching'; }
+  }
+
+  // Open chat view
+  function openChat(roomCode, peer){
+    currentRoom = roomCode;
+    currentPeer = peer || null;
+    // Check if it's a channel to get owner info
+    const isChannel = roomCode.startsWith('ch-');
+    const ch = myChannels.find(c => c.code === roomCode);
+    if(isChannel && ch){
+      isOwner = ch.createdBy && ch.createdBy.toLowerCase() === (me||'').toLowerCase();
+      channelOwner = ch.createdBy || null;
+    } else {
+      isOwner = false;
+      channelOwner = null;
+    }
+    $('chat-view').classList.add('active');
+    $('manage-btn').style.display = isOwner ? 'inline-flex' : 'none';
+    $('chat-room-name').textContent = isChannel ? (ch ? ch.name : roomCode) : (peer || roomCode);
+    // Connect to room via WebSocket
+    connectWS(roomCode, peer);
+  }
+
+  // Close chat view
+  $('chat-back').addEventListener('click', ()=>{
+    $('chat-view').classList.remove('active');
+    if(ws){ ws.close(); ws = null; }
+    currentRoom = null;
+    currentPeer = null;
+    isOwner = false;
+    channelOwner = null;
+    $('manage-btn').style.display = 'none';
+    $('msg-scroll').innerHTML = '<div class="list-empty" id="empty-state">No messages yet.</div>';
+    messages = {};
   });
 
-  function renderBrowseChannels(chs){
-    const el = $('browse-channels-list');
-    if(!chs.length){ el.innerHTML = `<div class="search-status" style="display:block;">No public channels yet — create the first one above.</div>`; return; }
-    el.innerHTML = chs.map(c => `
-      <div class="search-result-item">
-        <div class="search-result-avatar channel-avatar">#</div>
-        <div class="chat-item-text">
-          <div class="chat-item-name">${esc(c.name)}</div>
-          <div class="chat-item-preview">${c.memberCount} member${c.memberCount===1?'':'s'}</div>
-        </div>
-        <button class="search-result-msg-btn" data-code="${esc(c.code)}">Join</button>
-      </div>
-    `).join('');
-    el.querySelectorAll('[data-code]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        const code = btn.dataset.code;
-        try{ await fetch(`/api/channels/${encodeURIComponent(code)}/join`, { method:'POST', headers:{'Authorization':`Bearer ${token}`} }); }catch(e){}
-        $('room-input').value = code;
-        enterRoom();
-      });
-    });
-  }
-
-  function updateHeaderForRoomKind(data){
-    if(data.roomKind === 'channel'){
-      $('hdr-room-name').textContent = data.channelName ? `# ${data.channelName}` : room;
-    } else if(data.roomKind === 'dm' && data.peer){
-      $('hdr-room-name').textContent = data.peer;
-    } else {
-      $('hdr-room-name').textContent = room;
+  // Leave chat
+  $('leave-chat-btn').addEventListener('click', ()=>{
+    if(confirm('Leave this room?')){
+      $('chat-back').click();
     }
-  }
+  });
 
-  function handleServerMessage(data){
+  // WebSocket connection for room
+  function connectWS(roomCode, peer){
+    if(ws){ try{ ws.close(); }catch(e){} ws=null; }
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    let url = `${proto}://${location.host}/ws?token=${encodeURIComponent(token)}&room=${encodeURIComponent(roomCode)}`;
+    if(peer) url += `&peer=${encodeURIComponent(peer)}`;
+    ws = new WebSocket(url);
+    ws.onopen = ()=>{ wsReconnectAttempts = 0; $('conn-dot').classList.remove('offline'); };
+    ws.onmessage = (ev)=>{ try{ handleChatMessage(JSON.parse(ev.data)); }catch(e){} };
+    ws.onclose = ()=>{
+      $('conn-dot').classList.add('offline');
+      if(currentRoom){
+        wsReconnectAttempts++;
+        setTimeout(()=>connectWS(currentRoom, currentPeer), Math.min(1000 * wsReconnectAttempts, 8000));
+      }
+    };
+    ws.onerror = ()=>{};
+  }
+  function wsSend(obj){ if(ws && ws.readyState===1) ws.send(JSON.stringify(obj)); }
+
+  function handleChatMessage(data){
     switch(data.type){
       case 'joined':
         timerSeconds = data.timerSeconds;
@@ -1345,7 +1084,14 @@
           if(m.sender !== me && !(m.readBy && m.readBy[me])) wsSend({type:'read', id:m.id});
         });
         renderEmptyState();
-        updateHeaderForRoomKind(data);
+        if(data.roomKind === 'channel'){
+          isOwner = data.isOwner || false;
+          channelOwner = data.owner || null;
+          $('manage-btn').style.display = isOwner ? 'inline-flex' : 'none';
+          $('chat-room-name').textContent = data.channelName || currentRoom;
+        } else {
+          $('chat-room-name').textContent = data.peer || currentRoom;
+        }
         break;
       case 'presence': updatePresence(data.users); break;
       case 'message': {
@@ -1364,10 +1110,7 @@
       }
       case 'message-deleted': {
         const row = document.getElementById('m_'+data.id);
-        if(row && !row.classList.contains('burning')){
-          row.classList.add('burning');
-          setTimeout(()=>{ row.remove(); delete messages[data.id]; renderEmptyState(); }, 1050);
-        } else if(messages[data.id]) { delete messages[data.id]; }
+        if(row){ row.remove(); delete messages[data.id]; renderEmptyState(); }
         break;
       }
       case 'settings':
@@ -1375,22 +1118,13 @@
         $('timer-select').value = String(timerSeconds);
         if(data.changedBy !== me) showToast(`${data.changedBy} changed the burn timer`);
         break;
-      case 'incoming-call': handleIncomingCall(data); break;
-      case 'call-answer': handleCallAnswer(data); break;
-      case 'call-ice':
-        if(pc && data.callId === currentCallId){
-          try{ pc.addIceCandidate(new RTCIceCandidate(data.candidate)); }catch(e){}
-        }
-        break;
-      case 'call-ended': if(data.callId === currentCallId) hangupCall(false); break;
-      case 'screenshot-alert': showToast(`⚠ ${data.by} may have taken a screenshot`); break;
       default: break;
     }
   }
 
   function updatePresence(users){
     const others = (users||[]).filter(u=>u!==me);
-    $('hdr-presence-text').textContent = others.length ? `${others.join(', ')} online` : 'just you, for now';
+    $('presence-text').textContent = others.length ? `${others.join(', ')} online` : 'just you';
   }
 
   function renderEmptyState(){ $('empty-state').style.display = Object.keys(messages).length ? 'none' : 'flex'; }
@@ -1403,10 +1137,10 @@
     const p = data.payload || {};
     if(data.type==='text'){ inner += `<div>${linkify(p.text||'')}</div>`; }
     else if(data.type==='image'){ inner += `<img src="${p.imageData}" alt="shared image">`; if(p.text) inner += `<div style="margin-top:6px;">${linkify(p.text)}</div>`; }
-    else if(data.type==='file'){ inner += `<div class="file-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21.4 11.6L12.6 20.4a4 4 0 0 1-5.7-5.7l8.5-8.5a2.7 2.7 0 0 1 3.8 3.8l-8.4 8.5a1.3 1.3 0 0 1-1.9-1.9l7.8-7.8"/></svg><a href="${p.fileData}" download="${esc(p.fileName)}">${esc(p.fileName)}</a></div>`; }
-    else if(data.type==='contact'){ const initial=(p.contactName||'?').trim()[0]?.toUpperCase()||'?'; inner += `<div class="contact-chip"><div class="contact-avatar">${initial}</div><div><div class="contact-name">${esc(p.contactName)}</div><div class="contact-phone">${esc(p.contactPhone||'')}</div></div></div>`; }
+    else if(data.type==='file'){ inner += `<div style="display:flex;align-items:center;gap:8px;background:var(--bg-input);padding:6px 10px;border-radius:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;"><path d="M21.4 11.6L12.6 20.4a4 4 0 0 1-5.7-5.7l8.5-8.5a2.7 2.7 0 0 1 3.8 3.8l-8.4 8.5a1.3 1.3 0 0 1-1.9-1.9l7.8-7.8"/></svg><a href="${p.fileData}" download="${esc(p.fileName)}" style="color:var(--text);text-decoration:none;font-size:13px;">${esc(p.fileName)}</a></div>`; }
+    else if(data.type==='contact'){ const initial=(p.contactName||'?').trim()[0]?.toUpperCase()||'?'; inner += `<div style="display:flex;align-items:center;gap:9px;background:var(--bg-input);padding:8px 11px;border-radius:8px;"><div style="width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${initial}</div><div><div style="font-weight:600;">${esc(p.contactName)}</div><div style="font-size:11px;color:var(--text-dim);">${esc(p.contactPhone||'')}</div></div></div>`; }
     inner += `<div class="msg-time mono">${fmtTime(data.createdAt)}</div>`;
-    inner += `<div class="fuse-wrap" style="display:none;" id="fuse_${id}"><div class="fuse-track"><div class="fuse-fill" id="fusefill_${id}" style="width:100%;"></div></div><div class="fuse-label mono" id="fuselabel_${id}"></div></div></div>`;
+    inner += `<div class="fuse-wrap" id="fuse_${id}" style="${timerSeconds && data.readBy && Object.keys(data.readBy).length ? 'display:block;' : 'display:none;'}"><div class="fuse-track"><div class="fuse-fill" id="fusefill_${id}" style="width:100%;"></div></div><div class="fuse-label mono" id="fuselabel_${id}"></div></div></div>`;
     row.innerHTML = inner;
     updateFuseDisplay(id, data);
   }
@@ -1417,7 +1151,7 @@
     if(!timerSeconds) return;
     const readAt = getFirstReadAt(data);
     const wrap = document.getElementById('fuse_'+id);
-    if(!wrap || !readAt) return;
+    if(!wrap || !readAt){ if(wrap) wrap.style.display='none'; return; }
     wrap.style.display='block';
     const deleteAt = readAt + timerSeconds*1000;
     const remaining = deleteAt - Date.now();
@@ -1428,12 +1162,14 @@
     if(label) label.textContent = remaining>0 ? `burns in ${fmtCountdown(remaining)}` : 'burning…';
   }
 
-  burnCheckHandle = setInterval(()=>{ for(const id of Object.keys(messages)) updateFuseDisplay(id, messages[id]); }, 1000);
+  function fmtCountdown(ms){ if(ms<=0) return '0:00'; const s=Math.ceil(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
 
+  // Timer change
   $('timer-select').addEventListener('change', ()=>{
     wsSend({type:'settings', timerSeconds: parseInt($('timer-select').value,10)});
   });
 
+  // Send text
   $('send-btn').addEventListener('click', doSendText);
   $('text-input').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); doSendText(); } });
   $('text-input').addEventListener('input', function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,80)+'px'; });
@@ -1444,16 +1180,16 @@
     $('text-input').value=''; $('text-input').style.height='auto';
   }
 
-  // MEDIA
+  // Media attachments
   $('attach-image-btn').addEventListener('click', ()=> $('file-image').click());
   $('file-image').addEventListener('change', async (e)=>{
     const f = e.target.files[0]; e.target.value='';
     if(!f) return;
     try{
       const dataUrl = await resizeImage(f, 1100, 0.65);
-      if(dataUrl.length > 1_600_000){ showToast('Image still too large after compression'); return; }
+      if(dataUrl.length > 1_600_000){ showToast('Image too large after compression'); return; }
       wsSend({type:'message', msgType:'image', payload:{imageData:dataUrl}});
-    }catch(err){ showToast('Could not process that image'); }
+    }catch(err){ showToast('Could not process image'); }
   });
   function resizeImage(file, maxDim, quality){
     return new Promise((resolve, reject)=>{
@@ -1478,32 +1214,92 @@
     reader.readAsDataURL(f);
   });
   $('attach-contact-btn').addEventListener('click', ()=>{
-    const name = prompt('Contact name:');
-    if(!name) return;
+    const name = prompt('Contact name:'); if(!name) return;
     const phone = prompt('Phone number (optional):') || '';
     wsSend({type:'message', msgType:'contact', payload:{contactName:name, contactPhone:phone}});
   });
 
-  // SCREENSHOT DETERRENCE
-  function initScreenshotDeterrence(){
-    document.addEventListener('contextmenu', e=>{ if(e.target.closest('#msg-scroll')) e.preventDefault(); });
-    window.addEventListener('keydown', e=>{
-      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='p'){ e.preventDefault(); blurThenNotify(); }
-      if(e.key === 'PrintScreen'){ blurThenNotify(); }
-    });
-    window.addEventListener('blur', ()=>{ $('msg-scroll').classList.add('blurred'); notifyPossibleScreenshot(); });
-    window.addEventListener('focus', ()=>{ $('msg-scroll').classList.remove('blurred'); });
-    document.addEventListener('visibilitychange', ()=>{
-      if(document.hidden){ $('msg-scroll').classList.add('blurred'); notifyPossibleScreenshot(); }
-      else{ $('msg-scroll').classList.remove('blurred'); }
-    });
+  // Manage modal
+  async function openManageModal(code){
+    const modal = $('manage-modal');
+    modal.classList.add('active');
+    $('manage-title').textContent = `Manage ${code}`;
+    // Load members
+    try{
+      const res = await fetch(`/api/channels/${encodeURIComponent(code)}/members?status=all`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if(!res.ok){ showToast('Could not load members'); return; }
+      const data = await res.json();
+      const members = data.members || [];
+      const pending = members.filter(m => m.status === 'pending');
+      const accepted = members.filter(m => m.status === 'accepted');
+      // owner info
+      const ch = myChannels.find(c => c.code === code);
+      $('manage-owner').textContent = ch ? ch.createdBy : '?';
+      // pending list
+      const pendingEl = $('pending-list');
+      if(!pending.length){ pendingEl.innerHTML = '<div style="color:var(--text-faint);font-size:13px;">No pending requests</div>'; }
+      else {
+        pendingEl.innerHTML = pending.map(m => `
+          <div class="member-item">
+            <span class="name">${esc(m.username)}</span>
+            <div class="actions">
+              <button class="accept" data-code="${code}" data-user="${esc(m.username)}" data-action="accept">Accept</button>
+              <button class="decline" data-code="${code}" data-user="${esc(m.username)}" data-action="decline">Decline</button>
+            </div>
+          </div>
+        `).join('');
+        pendingEl.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', async ()=>{
+            const action = btn.dataset.action;
+            const user = btn.dataset.user;
+            const code = btn.dataset.code;
+            try{
+              const res = await fetch(`/api/channels/${encodeURIComponent(code)}/members/${encodeURIComponent(user)}/${action}`, {
+                method:'POST', headers:{'Authorization':`Bearer ${token}`}
+              });
+              if(!res.ok){ showToast('Action failed'); return; }
+              showToast(`Request ${action}ed`);
+              openManageModal(code); // refresh
+            }catch(e){ showToast('Error'); }
+          });
+        });
+      }
+      // members list
+      const membersEl = $('members-list');
+      if(!accepted.length){ membersEl.innerHTML = '<div style="color:var(--text-faint);font-size:13px;">No members yet</div>'; }
+      else {
+        membersEl.innerHTML = accepted.map(m => `
+          <div class="member-item">
+            <span class="name">${esc(m.username)}</span>
+          </div>
+        `).join('');
+      }
+    }catch(e){ showToast('Error loading members'); }
+    // Delete channel
+    $('delete-channel-btn').onclick = async ()=>{
+      if(!confirm(`Delete channel "${code}" permanently? This cannot be undone.`)) return;
+      try{
+        const res = await fetch(`/api/channels/${encodeURIComponent(code)}`, {
+          method:'DELETE', headers:{'Authorization':`Bearer ${token}`}
+        });
+        if(!res.ok){ showToast('Could not delete'); return; }
+        showToast('Channel deleted');
+        modal.classList.remove('active');
+        loadRooms();
+        if(currentRoom === code) $('chat-back').click();
+      }catch(e){ showToast('Error deleting'); }
+    };
   }
-  function blurThenNotify(){ $('msg-scroll').classList.add('blurred'); setTimeout(()=>$('msg-scroll').classList.remove('blurred'),1400); notifyPossibleScreenshot(); }
-  let lastNotify = 0;
-  function notifyPossibleScreenshot(){ const now=Date.now(); if(now-lastNotify<4000) return; lastNotify=now; wsSend({type:'screenshot-alert'}); }
-  $('ss-dismiss').addEventListener('click', ()=> $('ss-banner').style.display='none');
+  $('close-manage').addEventListener('click', ()=>{
+    $('manage-modal').classList.remove('active');
+  });
+  $('manage-btn').addEventListener('click', ()=>{
+    if(currentRoom && isOwner) openManageModal(currentRoom);
+  });
 
-  // IMAGE LIGHTBOX — bubbles keep images small; tap one to view full size
+  // Image lightbox
   $('msg-scroll').addEventListener('click', (e)=>{
     const img = e.target.closest('.bubble img');
     if(!img) return;
@@ -1514,123 +1310,28 @@
   $('img-lightbox-close').addEventListener('click', closeLightbox);
   $('img-lightbox').addEventListener('click', (e)=>{ if(e.target.id==='img-lightbox') closeLightbox(); });
 
-  // LEAVE
-  $('leave-btn').addEventListener('click', ()=>{
-    if(confirm('Leave this room?')){
-      hangupCall(true);
-      if(ws){ room=null; ws.close(); ws=null; }
-      currentPeer = null;
-      $('chat').style.display='none';
-      $('landing').style.display='flex';
-      $('msg-scroll').innerHTML = '<div class="empty-state" id="empty-state"><div>No messages yet.</div></div>';
-      messages = {};
-      $('room-pin-note').style.display='none';
-      $('room-pin-field').style.display='none';
-      $('room-pin-input').value='';
-      setRoomError('');
-    }
-  });
+  // Call placeholders (WebRTC not fully implemented in this version)
+  $('call-audio-btn').addEventListener('click', ()=>{ showToast('Call feature coming soon'); });
+  $('call-video-btn').addEventListener('click', ()=>{ showToast('Video call coming soon'); });
 
-  // WEBRTC CALLING
-  function setupPeerConnection(type){
-    pc = new RTCPeerConnection(STUN);
-    pc.onicecandidate = (e)=>{
-      if(!e.candidate) return;
-      if(peerUsername) wsSend({type:'call-ice', callId:currentCallId, to:peerUsername, candidate:e.candidate});
-      else pendingIce.push(e.candidate);
-    };
-    pc.ontrack = (e)=>{
-      if(type==='video'){ $('remote-video').srcObject = e.streams[0]; $('local-video').srcObject = localStream; }
-      else{
-        let a = document.getElementById('remote-audio-el');
-        if(!a){ a=document.createElement('audio'); a.id='remote-audio-el'; a.autoplay=true; document.body.appendChild(a); }
-        a.srcObject = e.streams[0];
-      }
-      $('call-status-text').textContent = 'Connected';
-      $('call-idle-stage').style.display = type==='video' ? 'none' : 'flex';
-      $('video-stage').style.display = type==='video' ? 'block' : 'none';
-    };
-    pc.onconnectionstatechange = ()=>{
-      if(pc && (pc.connectionState==='failed' || pc.connectionState==='disconnected')) showToast('Call connection lost');
-    };
+  // Load conversations on startup
+  async function loadConversations(){
+    try{
+      const res = await fetch('/api/conversations', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      conversations = data.conversations || [];
+      renderConversations();
+    }catch(e){}
   }
 
-  async function startCall(type){
-    if(callActive){ showToast('Already in a call'); return; }
-    currentCallId = 'c'+Date.now(); callRole='caller'; peerUsername=null; pendingIce=[];
-    try{ localStream = await navigator.mediaDevices.getUserMedia({audio:true, video: type==='video'}); }
-    catch(e){ showToast('Could not access mic/camera: '+e.name); return; }
-    setupPeerConnection(type);
-    localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
-    const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-    wsSend({type:'call-offer', callId:currentCallId, callType:type, sdp:offer});
-    showCallOverlay();
-    $('call-peer-name').textContent='Calling…'; $('call-avatar-letter').textContent='…';
-    $('call-status-text').textContent='Ringing on their end';
-    $('call-actions-outgoing').style.display='flex'; $('call-actions-incoming').style.display='none';
-    callActive = true;
-  }
-  $('call-audio-btn').addEventListener('click', ()=> startCall('audio'));
-  $('call-video-btn').addEventListener('click', ()=> startCall('video'));
-
-  let incomingOffer = null, incomingType = null;
-  function handleIncomingCall(data){
-    if(callActive) return;
-    currentCallId = data.callId; callRole='callee'; peerUsername=data.from; incomingOffer=data.sdp; incomingType=data.callType;
-    showCallOverlay();
-    $('call-peer-name').textContent = data.from;
-    $('call-avatar-letter').textContent = data.from[0].toUpperCase();
-    $('call-status-text').textContent = `Incoming ${data.callType} call`;
-    $('call-actions-incoming').style.display='flex'; $('call-actions-outgoing').style.display='none';
-  }
-  $('call-accept-btn').addEventListener('click', async ()=>{
-    try{ localStream = await navigator.mediaDevices.getUserMedia({audio:true, video: incomingType==='video'}); }
-    catch(e){ showToast('Could not access mic/camera: '+e.name); hangupCall(true); return; }
-    pendingIce=[];
-    setupPeerConnection(incomingType);
-    localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
-    await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
-    const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
-    wsSend({type:'call-answer', callId:currentCallId, to:peerUsername, sdp:answer});
-    callActive = true;
-    $('call-status-text').textContent='Connecting…';
-    $('call-actions-incoming').style.display='none';
-  });
-  $('call-decline-btn').addEventListener('click', ()=> hangupCall(true));
-  $('call-cancel-btn').addEventListener('click', ()=> hangupCall(true));
-  $('hangup-btn').addEventListener('click', ()=> hangupCall(true));
-
-  function handleCallAnswer(data){
-    if(data.callId !== currentCallId || callRole !== 'caller' || !pc) return;
-    peerUsername = data.from;
-    pc.setRemoteDescription(new RTCSessionDescription(data.sdp)).then(()=>{
-      pendingIce.forEach(c => wsSend({type:'call-ice', callId:currentCallId, to:peerUsername, candidate:c}));
-      pendingIce = [];
-    });
-  }
-
-  function showCallOverlay(){ $('call-overlay').style.display='flex'; $('call-idle-stage').style.display='flex'; $('video-stage').style.display='none'; }
-
-  $('mute-btn').addEventListener('click', ()=>{
-    if(!localStream) return;
-    micOn = !micOn; localStream.getAudioTracks().forEach(t=>t.enabled=micOn);
-    $('mute-btn').classList.toggle('active', !micOn);
-  });
-  $('cam-btn').addEventListener('click', ()=>{
-    if(!localStream) return;
-    camOn = !camOn; localStream.getVideoTracks().forEach(t=>t.enabled=camOn);
-    $('cam-btn').classList.toggle('active', !camOn);
-  });
-
-  function hangupCall(notifyPeer){
-    if(notifyPeer && currentCallId) wsSend({type:'call-end', callId:currentCallId, to:peerUsername});
-    if(pc){ pc.close(); pc=null; }
-    if(localStream){ localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
-    $('call-overlay').style.display='none';
-    $('call-actions-incoming').style.display='none'; $('call-actions-outgoing').style.display='none';
-    $('remote-video').srcObject=null; $('local-video').srcObject=null;
-    const a = document.getElementById('remote-audio-el'); if(a) a.srcObject=null;
-    currentCallId=null; callRole=null; peerUsername=null; pendingIce=[]; callActive=false; micOn=true; camOn=true;
+  // Auto init if token exists
+  if(token){
+    (async ()=>{
+      await afterAuth();
+    })();
+  } else {
+    // show welcome
+    $('welcome').style.display = 'flex';
   }
 
 })();
