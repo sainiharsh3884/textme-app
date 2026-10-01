@@ -645,6 +645,7 @@
   // Call state
   let pc = null, localStream = null, currentCallId = null, callRole = null, peerUsername = null;
   let pendingIce = [], callActive = false;
+  let callType = null;
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -768,6 +769,28 @@
     lobbyWs.onerror = ()=>{};
   }
 
+  function handleLobbyMessage(data){
+    switch(data.type){
+      case 'lobby-joined':
+        conversations = data.conversations || [];
+        myChannels = data.channels || [];
+        renderConversations();
+        renderMyChannels();
+        break;
+      case 'dm-notify':
+        upsertConversation(data);
+        if(!currentRoom || currentRoom !== data.room) showToast(`New message from ${data.from}`);
+        break;
+      case 'channel-request':
+        showToast(`New join request for channel "${data.code}" from ${data.from}`);
+        loadRooms();
+        break;
+      case 'channel-request-update':
+        if(data.status === 'accepted') showToast(`You were accepted into channel "${data.code}"`);
+        else if(data.status === 'declined') showToast(`Your request to join "${data.code}" was declined`);
+        refreshMyChannels();
+        loadRooms();
+        break;
       case 'incoming-call': {
         if(callActive){
           wsSend({ type:'call-end', callId: data.callId, to: data.from });
@@ -802,6 +825,9 @@
         cleanupCall();
         break;
       }
+      default: break;
+    }
+  }
 
   function upsertConversation(notif){
     let c = conversations.find(x => x.room === notif.room);
@@ -869,7 +895,6 @@
 
     el.querySelectorAll('[data-code]').forEach(item => {
       const code = item.dataset.code;
-      // Attach click listeners to all action buttons inside this item
       const actionBtns = item.querySelectorAll('[data-action]');
       actionBtns.forEach(btn => {
         btn.addEventListener('click', (e)=>{
@@ -880,7 +905,6 @@
           else if(action === 'join') joinChannel(code);
         });
       });
-      // Also allow clicking on the whole item to open the chat (if accepted)
       item.addEventListener('click', ()=>{
         const ch = myChannels.find(c => c.code === code);
         if(ch && ch.status === 'accepted') openChat(code);
@@ -1118,7 +1142,7 @@
         if(row){ row.remove(); delete messages[data.id]; renderEmptyState(); }
         break;
       }
-            case 'settings':
+      case 'settings':
         timerSeconds = data.timerSeconds;
         $('timer-select').value = String(timerSeconds);
         if(data.changedBy !== me) showToast(`${data.changedBy} changed the burn timer`);
@@ -1160,10 +1184,8 @@
       default: break;
     }
   }
-  
 
-    // ---------- WebRTC CALLING ----------
-  let callType = null;
+  // ---------- WebRTC CALLING ----------
 
   function showIncomingCallUI(from, type, callId, sdp){
     const overlay = document.createElement('div');
@@ -1189,7 +1211,7 @@
     });
   }
 
-    async function startCall(type, targetUser){
+  async function startCall(type, targetUser){
     const target = targetUser || currentPeer;
     if(!target){ showToast('No one to call'); return; }
     if(target.toLowerCase() === (me||'').toLowerCase()){ showToast("You can't call yourself"); return; }
@@ -1327,7 +1349,6 @@
     });
   }
 
-
   function renderEmptyState(){ $('empty-state').style.display = Object.keys(messages).length ? 'none' : 'flex'; }
 
   function renderMessage(id, data){
@@ -1417,7 +1438,6 @@
     wsSend({type:'message', msgType:'contact', payload:{contactName:name, contactPhone:phone}});
   });
 
-  // Manage modal - fixed to fetch all members (no ?status=all)
   async function openManageModal(code){
     const modal = $('manage-modal');
     modal.classList.add('active');
@@ -1492,7 +1512,6 @@
     if(currentRoom && isOwner) openManageModal(currentRoom);
   });
 
-  // Image lightbox
   $('msg-scroll').addEventListener('click', (e)=>{
     const img = e.target.closest('.bubble img');
     if(!img) return;
@@ -1503,7 +1522,7 @@
   $('img-lightbox-close').addEventListener('click', closeLightbox);
   $('img-lightbox').addEventListener('click', (e)=>{ if(e.target.id==='img-lightbox') closeLightbox(); });
 
-    $('call-audio-btn').addEventListener('click', ()=> handleCallButton('audio'));
+  $('call-audio-btn').addEventListener('click', ()=> handleCallButton('audio'));
   $('call-video-btn').addEventListener('click', ()=> handleCallButton('video'));
 
   function handleCallButton(type){
@@ -1549,6 +1568,7 @@
     });
     overlay.querySelector('#call-picker-cancel').addEventListener('click', ()=> overlay.remove());
   }
+
   async function loadConversations(){
     try{
       const res = await fetch('/api/conversations', { headers: { 'Authorization': `Bearer ${token}` } });
