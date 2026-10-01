@@ -1180,13 +1180,15 @@
     });
   }
 
-  async function startCall(type){
-    if(!currentPeer){ showToast('Calls only work in direct messages'); return; }
+    async function startCall(type, targetUser){
+    const target = targetUser || currentPeer;
+    if(!target){ showToast('No one to call'); return; }
+    if(target.toLowerCase() === (me||'').toLowerCase()){ showToast("You can't call yourself"); return; }
     if(callActive){ showToast('Already in a call'); return; }
     callType = type;
     callRole = 'caller';
     currentCallId = Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-    peerUsername = currentPeer;
+    peerUsername = target;
     try{
       localStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
