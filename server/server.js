@@ -964,23 +964,39 @@ wss.on('connection', (ws) => {
         broadcast(room, { type: 'settings', timerSeconds: secs, changedBy: username }, null);
         break;
       }
-      case 'call-offer': {
-        broadcast(room, { type: 'incoming-call', callId: msg.callId, from: username, callType: msg.callType, sdp: msg.sdp }, username);
+        case 'call-offer': {
+        const targetKey = String(msg.to || '').toLowerCase();
+        if (!targetKey) break;
+        const targetConns = userConnections.get(targetKey);
+        if (!targetConns || targetConns.size === 0) {
+          send(ws, { type: 'call-unavailable', callId: msg.callId, to: msg.to });
+          break;
+        }
+        sendToUser(targetKey, { type: 'incoming-call', callId: msg.callId, from: username, callType: msg.callType, sdp: msg.sdp });
         break;
       }
-      case 'call-answer': {
-        send(room.clients.get(msg.to), { type: 'call-answer', callId: msg.callId, from: username, sdp: msg.sdp });
+        case 'call-answer': {
+        const ansKey = String(msg.to || '').toLowerCase();
+        if (!ansKey) break;
+        sendToUser(ansKey, { type: 'call-answer', callId: msg.callId, from: username, sdp: msg.sdp });
         break;
       }
-      case 'call-ice': {
-        send(room.clients.get(msg.to), { type: 'call-ice', callId: msg.callId, from: username, candidate: msg.candidate });
+        case 'call-ice': {
+        const iceKey = String(msg.to || '').toLowerCase();
+        if (!iceKey) break;
+        sendToUser(iceKey, { type: 'call-ice', callId: msg.callId, from: username, candidate: msg.candidate });
         break;
       }
-      case 'call-end': {
-        if (msg.to) send(room.clients.get(msg.to), { type: 'call-ended', callId: msg.callId, from: username });
-        else broadcast(room, { type: 'call-ended', callId: msg.callId, from: username }, username);
+        case 'call-end': {
+        if (msg.to) {
+          sendToUser(String(msg.to).toLowerCase(), { type: 'call-ended', callId: msg.callId, from: username });
+        } else {
+          broadcast(room, { type: 'call-ended', callId: msg.callId, from: username }, username);
+        }
         break;
       }
+      
+      
       case 'screenshot-alert': {
         broadcast(room, { type: 'screenshot-alert', by: username }, username);
         break;
