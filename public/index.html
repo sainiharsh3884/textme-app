@@ -1109,13 +1109,48 @@
         if(row){ row.remove(); delete messages[data.id]; renderEmptyState(); }
         break;
       }
-      case 'settings':
+            case 'settings':
         timerSeconds = data.timerSeconds;
         $('timer-select').value = String(timerSeconds);
         if(data.changedBy !== me) showToast(`${data.changedBy} changed the burn timer`);
         break;
+      case 'incoming-call': {
+        if(callActive){
+          wsSend({ type:'call-end', callId: data.callId, to: data.from });
+          break;
+        }
+        showIncomingCallUI(data.from, data.callType, data.callId, data.sdp);
+        break;
+      }
+      case 'call-answer': {
+        if(!pc) break;
+        pc.setRemoteDescription(new RTCSessionDescription(data.sdp))
+          .then(()=>{
+            for(const c of pendingIce){
+              try{ pc.addIceCandidate(new RTCIceCandidate(c)); }catch(e){}
+            }
+            pendingIce = [];
+          }).catch(()=>{});
+        break;
+      }
+      case 'call-ice': {
+        if(!pc){ pendingIce.push(data.candidate); break; }
+        pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(()=>{});
+        break;
+      }
+      case 'call-ended': {
+        showToast('Call ended');
+        cleanupCall();
+        break;
+      }
+      case 'call-unavailable': {
+        showToast('User is offline');
+        cleanupCall();
+        break;
+      }
       default: break;
     }
+  }
   }
 
   function updatePresence(users){
