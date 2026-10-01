@@ -1494,8 +1494,52 @@
   $('img-lightbox-close').addEventListener('click', closeLightbox);
   $('img-lightbox').addEventListener('click', (e)=>{ if(e.target.id==='img-lightbox') closeLightbox(); });
 
-  $('call-audio-btn').addEventListener('click', ()=> startCall('audio'));
-  $('call-video-btn').addEventListener('click', ()=> startCall('video'));
+    $('call-audio-btn').addEventListener('click', ()=> handleCallButton('audio'));
+  $('call-video-btn').addEventListener('click', ()=> handleCallButton('video'));
+
+  function handleCallButton(type){
+    if(currentPeer){ startCall(type); return; }
+    const online = getOnlineOthers();
+    if(!online.length){ showToast('No one else is online in this room'); return; }
+    if(online.length === 1){ startCall(type, online[0]); return; }
+    showCallTargetPicker(online, type);
+  }
+
+  function getOnlineOthers(){
+    const txt = ($('presence-text').textContent || '').trim();
+    if(!txt || txt === 'just you') return [];
+    return txt
+      .replace(/\s+online$/i, '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(u => u && u.toLowerCase() !== (me||'').toLowerCase());
+  }
+
+  function showCallTargetPicker(users, type){
+    const overlay = document.createElement('div');
+    overlay.id = 'call-target-picker';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:1000;';
+    overlay.innerHTML = `
+      <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:360px;width:90%;">
+        <h3 style="margin-bottom:12px;font-size:16px;">Who do you want to ${type === 'video' ? 'video call' : 'call'}?</h3>
+        <div style="display:flex;flex-direction:column;gap:8px;" id="call-picker-list"></div>
+        <button id="call-picker-cancel" style="margin-top:14px;width:100%;padding:9px;border-radius:8px;background:var(--bg-input);color:var(--text-dim);border:1px solid var(--border);font-weight:600;cursor:pointer;">Cancel</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const list = overlay.querySelector('#call-picker-list');
+    users.forEach(u => {
+      const row = document.createElement('button');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:10px;color:var(--text);cursor:pointer;text-align:left;font-size:14px;';
+      row.innerHTML = `<div style="width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;">${esc((u[0]||'?').toUpperCase())}</div><span>${esc(u)}</span>`;
+      row.addEventListener('click', ()=>{
+        overlay.remove();
+        startCall(type, u);
+      });
+      list.appendChild(row);
+    });
+    overlay.querySelector('#call-picker-cancel').addEventListener('click', ()=> overlay.remove());
+  }
   async function loadConversations(){
     try{
       const res = await fetch('/api/conversations', { headers: { 'Authorization': `Bearer ${token}` } });
