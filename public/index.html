@@ -768,31 +768,40 @@
     lobbyWs.onerror = ()=>{};
   }
 
-  function handleLobbyMessage(data){
-    switch(data.type){
-      case 'lobby-joined':
-        conversations = data.conversations || [];
-        myChannels = data.channels || [];
-        renderConversations();
-        renderMyChannels();
+      case 'incoming-call': {
+        if(callActive){
+          wsSend({ type:'call-end', callId: data.callId, to: data.from });
+          break;
+        }
+        showIncomingCallUI(data.from, data.callType, data.callId, data.sdp);
         break;
-      case 'dm-notify':
-        upsertConversation(data);
-        if(!currentRoom || currentRoom !== data.room) showToast(`New message from ${data.from}`);
+      }
+      case 'call-answer': {
+        if(!pc) break;
+        pc.setRemoteDescription(new RTCSessionDescription(data.sdp))
+          .then(()=>{
+            for(const c of pendingIce){
+              try{ pc.addIceCandidate(new RTCIceCandidate(c)); }catch(e){}
+            }
+            pendingIce = [];
+          }).catch(()=>{});
         break;
-      case 'channel-request':
-        showToast(`New join request for channel "${data.code}" from ${data.from}`);
-        loadRooms();
+      }
+      case 'call-ice': {
+        if(!pc){ pendingIce.push(data.candidate); break; }
+        pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(()=>{});
         break;
-      case 'channel-request-update':
-        if(data.status === 'accepted') showToast(`You were accepted into channel "${data.code}"`);
-        else if(data.status === 'declined') showToast(`Your request to join "${data.code}" was declined`);
-        refreshMyChannels();
-        loadRooms();
+      }
+      case 'call-ended': {
+        showToast('Call ended');
+        cleanupCall();
         break;
-      default: break;
-    }
-  }
+      }
+      case 'call-unavailable': {
+        showToast('User is offline');
+        cleanupCall();
+        break;
+      }
 
   function upsertConversation(notif){
     let c = conversations.find(x => x.room === notif.room);
