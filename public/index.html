@@ -1298,9 +1298,8 @@
   $('img-lightbox-close').addEventListener('click', closeLightbox);
   $('img-lightbox').addEventListener('click', (e)=>{ if(e.target.id==='img-lightbox') closeLightbox(); });
 
-  $('call-audio-btn').addEventListener('click', ()=>{ showToast('Call feature coming soon'); });
-  $('call-video-btn').addEventListener('click', ()=>{ showToast('Video call coming soon'); });
-
+  $('call-audio-btn').addEventListener('click', ()=> startCall('audio'));
+  $('call-video-btn').addEventListener('click', ()=> startCall('video'));
   async function loadConversations(){
     try{
       const res = await fetch('/api/conversations', { headers: { 'Authorization': `Bearer ${token}` } });
